@@ -1,0 +1,9 @@
+
+# Component 2 - extracted raw audio (large, regenerated from data/*.zip)
+data/raw/
+data/vowel_task/raw/
+data/italian_pvs/raw/
+
+# Source archives >100MB — GitHub hard-rejects files this size, never commit these.
+data/26_29_09_2017_KCL.zip
+data/italian_pvs/italian_pvs.zip
