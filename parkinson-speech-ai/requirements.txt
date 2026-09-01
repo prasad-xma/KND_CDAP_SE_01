@@ -1,0 +1,10 @@
+librosa
+praat-parselmouth
+soundfile
+scikit-learn
+pandas
+numpy
+matplotlib
+joblib
+openpyxl
+imageio-ffmpeg
