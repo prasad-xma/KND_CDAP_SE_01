@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'register_screen.dart';
+import '../home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,13 +28,17 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleLogin() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
+      final String enteredName = _usernameController.text.trim().isNotEmpty
+          ? _usernameController.text.trim()
+          : 'Alex';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.check_circle_outline, color: Colors.white),
               const SizedBox(width: 10),
-              Text('Welcome back, ${_usernameController.text.trim()}!'),
+              Text('Welcome back, $enteredName!'),
             ],
           ),
           backgroundColor: const Color(0xFF0C9388),
@@ -42,9 +47,21 @@ class _LoginScreenState extends State<LoginScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
         ),
       );
+
+      // Seamlessly navigate to HomeScreen
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(userName: enteredName),
+            ),
+            (route) => false,
+          );
+        }
+      });
     }
   }
 
