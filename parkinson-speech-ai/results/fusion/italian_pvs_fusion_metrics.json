@@ -1,0 +1,130 @@
+{
+  "vowel_only": {
+    "accuracy": 0.9347826086956522,
+    "balanced_accuracy": 0.9356060606060606,
+    "classification_report": {
+      "HC": {
+        "precision": 0.9130434782608695,
+        "recall": 0.9545454545454546,
+        "f1-score": 0.9333333333333333,
+        "support": 22.0
+      },
+      "PD": {
+        "precision": 0.9565217391304348,
+        "recall": 0.9166666666666666,
+        "f1-score": 0.9361702127659575,
+        "support": 24.0
+      },
+      "accuracy": 0.9347826086956522,
+      "macro avg": {
+        "precision": 0.9347826086956521,
+        "recall": 0.9356060606060606,
+        "f1-score": 0.9347517730496454,
+        "support": 46.0
+      },
+      "weighted avg": {
+        "precision": 0.9357277882797731,
+        "recall": 0.9347826086956522,
+        "f1-score": 0.934813444341659,
+        "support": 46.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        21,
+        1
+      ],
+      [
+        2,
+        22
+      ]
+    ]
+  },
+  "ddk_only": {
+    "accuracy": 0.9347826086956522,
+    "balanced_accuracy": 0.9356060606060606,
+    "classification_report": {
+      "HC": {
+        "precision": 0.9130434782608695,
+        "recall": 0.9545454545454546,
+        "f1-score": 0.9333333333333333,
+        "support": 22.0
+      },
+      "PD": {
+        "precision": 0.9565217391304348,
+        "recall": 0.9166666666666666,
+        "f1-score": 0.9361702127659575,
+        "support": 24.0
+      },
+      "accuracy": 0.9347826086956522,
+      "macro avg": {
+        "precision": 0.9347826086956521,
+        "recall": 0.9356060606060606,
+        "f1-score": 0.9347517730496454,
+        "support": 46.0
+      },
+      "weighted avg": {
+        "precision": 0.9357277882797731,
+        "recall": 0.9347826086956522,
+        "f1-score": 0.934813444341659,
+        "support": 46.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        21,
+        1
+      ],
+      [
+        2,
+        22
+      ]
+    ]
+  },
+  "fused": {
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "classification_report": {
+      "HC": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 22.0
+      },
+      "PD": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 24.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 46.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 46.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        22,
+        0
+      ],
+      [
+        0,
+        24
+      ]
+    ]
+  },
+  "n_participants": 46,
+  "n_hc": 22,
+  "n_pd": 24,
+  "cv_splits": 5,
+  "fusion_method": "unweighted average of vowel_prob and ddk_prob, threshold 0.5"
+}
