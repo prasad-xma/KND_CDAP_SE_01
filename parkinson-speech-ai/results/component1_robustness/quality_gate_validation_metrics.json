@@ -1,0 +1,21 @@
+{
+  "ground_truth_source": "experiment.py robustness study (prediction_agreement_with_clean >= 0.7 = reliable) \u2014 NOT human-expert labels, no such corpus exists for this project.",
+  "accuracy": 0.5944444444444444,
+  "precision_unreliable": 0.7285714285714285,
+  "recall_unreliable": 0.4857142857142857,
+  "confusion_matrix_order": [
+    "unreliable",
+    "reliable"
+  ],
+  "confusion_matrix": [
+    [
+      102,
+      108
+    ],
+    [
+      38,
+      112
+    ]
+  ],
+  "n_evaluations": 360
+}
