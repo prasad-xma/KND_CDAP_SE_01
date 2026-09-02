@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'get_started_screen_2.dart';
 import 'auth/login_screen.dart';
+import 'auth/register_screen.dart';
 
-class GetStartedScreen extends StatelessWidget {
-  const GetStartedScreen({super.key});
+class GetStartedScreen2 extends StatelessWidget {
+  const GetStartedScreen2({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +24,28 @@ class GetStartedScreen extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.8),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryTeal.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 16,
+                color: primaryTeal,
+              ),
+            ),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -82,7 +104,7 @@ class GetStartedScreen extends StatelessWidget {
                       ),
                       child: const Center(
                         child: Icon(
-                          Icons.graphic_eq_rounded,
+                          Icons.psychology_rounded,
                           size: 90,
                           color: primaryTeal,
                         ),
@@ -95,7 +117,7 @@ class GetStartedScreen extends StatelessWidget {
 
                 // Title
                 const Text(
-                  'Voice Health Analysis',
+                  'AI-Powered Insights',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
@@ -110,7 +132,7 @@ class GetStartedScreen extends StatelessWidget {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12.0),
                   child: Text(
-                    'Analyze your speech acoustic features and detect subtle vocal patterns with precision.',
+                    'Track clinical voice biomarkers, speech stability, and receive intelligent diagnostic health summaries.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
@@ -128,15 +150,6 @@ class GetStartedScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 24,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: primaryTeal,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
@@ -144,11 +157,20 @@ class GetStartedScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 24,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: primaryTeal,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 32),
 
-                // Next Button
+                // Primary Button: Go to Login
                 Container(
                   width: double.infinity,
                   height: 56,
@@ -174,31 +196,65 @@ class GetStartedScreen extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const GetStartedScreen2(),
+                            builder: (_) => const LoginScreen(),
                           ),
                         );
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Next',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ],
+                      child: const Center(
+                        child: Text(
+                          'Log In',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Secondary Button: Go to Register
+                Container(
+                  width: double.infinity,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: primaryTeal.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryTeal.withValues(alpha: 0.08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        );
+                      },
+                      child: const Center(
+                        child: Text(
+                          'Create New Account',
+                          style: TextStyle(
+                            color: primaryTeal,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                     ),
