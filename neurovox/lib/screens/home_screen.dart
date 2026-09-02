@@ -1,1 +1,979 @@
-class HomeScreen {}
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class HomeScreen extends StatefulWidget {
+  final String userName;
+
+  const HomeScreen({
+    super.key,
+    this.userName = 'Alex',
+  });
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+  int _selectedTabIndex = 0;
+  bool _isRecordingSimulated = false;
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _showRecordVoiceModal() {
+    const Color primaryTeal = Color(0xFF0C9388);
+    const Color primaryTealLight = Color(0xFF0EC4B7);
+    const Color darkGrey = Color(0xFF2D3748);
+    const Color lightGrey = Color(0xFF718096);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.72,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Vocal Biomarker Check',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: darkGrey,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(modalContext),
+                        icon: const Icon(Icons.close_rounded, color: lightGrey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Please pronounce a steady sustained vowel /a/ into the microphone for 5 seconds.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: lightGrey,
+                      height: 1.4,
+                    ),
+                  ),
+                  const Spacer(),
+
+                  // Waveform simulation
+                  SizedBox(
+                    height: 100,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: List.generate(24, (index) {
+                        final double barHeight = _isRecordingSimulated
+                            ? 15.0 + 65.0 * math.sin((index * 0.3) + (_pulseController.value * math.pi * 2)).abs()
+                            : 8.0 + (index % 4) * 4.0;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                          width: 4,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [primaryTealLight, primaryTeal],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  Text(
+                    _isRecordingSimulated ? 'Listening & Analyzing Frequency...' : 'Ready to record',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: _isRecordingSimulated ? primaryTeal : lightGrey,
+                    ),
+                  ),
+                  const Spacer(),
+
+                  // Record Action Button
+                  GestureDetector(
+                    onTap: () {
+                      setModalState(() {
+                        _isRecordingSimulated = !_isRecordingSimulated;
+                      });
+                      setState(() {});
+
+                      if (_isRecordingSimulated) {
+                        Future.delayed(const Duration(seconds: 4), () {
+                          if (modalContext.mounted) {
+                            Navigator.pop(modalContext);
+                            _showSuccessAssessmentDialog();
+                          }
+                          setState(() {
+                            _isRecordingSimulated = false;
+                          });
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: _isRecordingSimulated
+                              ? [Colors.redAccent, Colors.red]
+                              : [primaryTealLight, primaryTeal],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isRecordingSimulated ? Colors.red : primaryTeal)
+                                .withValues(alpha: 0.4),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _isRecordingSimulated ? Icons.stop_rounded : Icons.mic_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _isRecordingSimulated ? 'Tap to cancel' : 'Tap mic to start test',
+                    style: const TextStyle(fontSize: 13, color: lightGrey),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSuccessAssessmentDialog() {
+    const Color primaryTeal = Color(0xFF0C9388);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: Colors.white,
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: primaryTeal, size: 28),
+              SizedBox(width: 10),
+              Text(
+                'Analysis Complete',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your vocal biomarkers have been processed successfully.',
+                style: TextStyle(color: Color(0xFF4A4A4A), fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD6ECE6).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Voice Stability Score:',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2D3748)),
+                    ),
+                    Text(
+                      '96% (Optimal)',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: primaryTeal),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'View Detailed Report',
+                style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showNotificationsSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.notifications_active_outlined, color: Color(0xFF0C9388)),
+                  SizedBox(width: 10),
+                  Text(
+                    'Notifications',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD6ECE6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.alarm_rounded, color: Color(0xFF0C9388)),
+                ),
+                title: const Text('Daily Assessment Reminder', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Take your 30-second morning vowel stability check.'),
+              ),
+              const Divider(),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.analytics_outlined, color: Color(0xFF4A4A4A)),
+                ),
+                title: const Text('Weekly Health Digest', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Your voice stability improved by +3.2% this week.'),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color bgMint = Color(0xFFD6ECE6);
+    const Color primaryTeal = Color(0xFF0C9388);
+    const Color primaryTealLight = Color(0xFF0EC4B7);
+    const Color darkSlate = Color(0xFF1E293B);
+    const Color mediumGrey = Color(0xFF64748B);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: bgMint,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Top Header Bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [primaryTealLight, primaryTeal],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryTeal.withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hello, ${widget.userName} 👋',
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                color: darkSlate,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Vocal Health Dashboard',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: mediumGrey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        // Notification Bell
+                        IconButton(
+                          onPressed: _showNotificationsSheet,
+                          icon: Stack(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(9),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: primaryTeal.withValues(alpha: 0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_none_rounded,
+                                  color: primaryTeal,
+                                  size: 22,
+                                ),
+                              ),
+                              Positioned(
+                                right: 3,
+                                top: 3,
+                                child: Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.redAccent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Scrollable Dashboard Body
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hero Health Score Card
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F9B90), Color(0xFF08756C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryTeal.withValues(alpha: 0.35),
+                              blurRadius: 22,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.shield_outlined, color: Colors.white, size: 14),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'Baseline Normal',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.local_fire_department_rounded, color: Colors.amberAccent, size: 15),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '7-Day Streak',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Voice Stability',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                                      textBaseline: TextBaseline.alphabetic,
+                                      children: [
+                                        Text(
+                                          '94',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 42,
+                                            fontWeight: FontWeight.w900,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                        Text(
+                                          '%',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                // Start Test Button
+                                ElevatedButton.icon(
+                                  onPressed: _showRecordVoiceModal,
+                                  icon: const Icon(Icons.mic_none_rounded, color: primaryTeal, size: 20),
+                                  label: const Text(
+                                    'Quick Test',
+                                    style: TextStyle(
+                                      color: primaryTeal,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: primaryTeal,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: 0.94,
+                                minHeight: 6,
+                                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+
+                      // Quick Actions Section
+                      const Text(
+                        'Assessment Modules',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: darkSlate,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 2x2 Grid of Feature Cards
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 1.25,
+                        children: [
+                          _buildActionCard(
+                            icon: Icons.graphic_eq_rounded,
+                            title: 'Vocal Biomarkers',
+                            subtitle: 'Pitch, Jitter & Shimmer',
+                            badgeColor: const Color(0xFFE6F8F5),
+                            iconColor: primaryTeal,
+                            onTap: _showRecordVoiceModal,
+                          ),
+                          _buildActionCard(
+                            icon: Icons.record_voice_over_rounded,
+                            title: 'Speech Task',
+                            subtitle: 'Passage reading check',
+                            badgeColor: const Color(0xFFEFF6FF),
+                            iconColor: const Color(0xFF2563EB),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Loading passage reading task...'),
+                                  backgroundColor: primaryTeal,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildActionCard(
+                            icon: Icons.insights_rounded,
+                            title: 'Analytics',
+                            subtitle: 'Historical trends',
+                            badgeColor: const Color(0xFFFAF5FF),
+                            iconColor: const Color(0xFF9333EA),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Detailed analytics view'),
+                                  backgroundColor: primaryTeal,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildActionCard(
+                            icon: Icons.description_outlined,
+                            title: 'Reports',
+                            subtitle: 'Export clinician PDF',
+                            badgeColor: const Color(0xFFFFF7ED),
+                            iconColor: const Color(0xFFEA580C),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Generating physician summary report...'),
+                                  backgroundColor: primaryTeal,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 26),
+
+                      // Recent Tests Timeline
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Recent Assessments',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: darkSlate,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {},
+                            child: const Text(
+                              'See All',
+                              style: TextStyle(
+                                color: primaryTeal,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      _buildRecentTestItem(
+                        title: 'Sustained Vowel /a/ Test',
+                        time: 'Today • 10:30 AM',
+                        stability: '96% Score',
+                        isOptimal: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildRecentTestItem(
+                        title: 'Cognitive Sentence Reading',
+                        time: 'Yesterday • 04:15 PM',
+                        stability: '93% Score',
+                        isOptimal: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildRecentTestItem(
+                        title: 'Phonation Frequency Sweep',
+                        time: 'Aug 30 • 09:00 AM',
+                        stability: '88% Score',
+                        isOptimal: false,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Floating Bottom Navigation Bar
+        bottomNavigationBar: Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: primaryTeal.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.home_rounded, 'Home'),
+              _buildNavItem(1, Icons.bar_chart_rounded, 'Trends'),
+              // Center Mic Action Button
+              GestureDetector(
+                onTap: _showRecordVoiceModal,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [primaryTealLight, primaryTeal],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryTeal.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.mic_rounded, color: Colors.white, size: 26),
+                ),
+              ),
+              _buildNavItem(2, Icons.folder_copy_outlined, 'Reports'),
+              _buildNavItem(3, Icons.settings_outlined, 'Settings'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final bool isSelected = _selectedTabIndex == index;
+    const Color primaryTeal = Color(0xFF0C9388);
+    const Color inactiveGrey = Color(0xFF94A3B8);
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedTabIndex = index;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? primaryTeal : inactiveGrey,
+              size: 24,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? primaryTeal : inactiveGrey,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color badgeColor,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0C9388).withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentTestItem({
+    required String title,
+    required String time,
+    required String stability,
+    required bool isOptimal,
+  }) {
+    const Color primaryTeal = Color(0xFF0C9388);
+    const Color darkSlate = Color(0xFF1E293B);
+    const Color mediumGrey = Color(0xFF64748B);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: primaryTeal.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD6ECE6),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.graphic_eq_rounded, color: primaryTeal, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: darkSlate,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: mediumGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isOptimal
+                  ? const Color(0xFFE6F8F5)
+                  : const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              stability,
+              style: TextStyle(
+                color: isOptimal ? primaryTeal : const Color(0xFFD97706),
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
