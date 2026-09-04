@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/widgets/organic_bottom_nav_bar.dart';
+import '../core/widgets/bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -343,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         bottomNavigationBar: SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 12.0, top: 4.0),
-            child: OrganicBottomNavBar(
+            child: BottomNavBar(
               currentIndex: _currentIndex,
               onTap: (index) => setState(() => _currentIndex = index),
               themeColor: primaryTeal,
