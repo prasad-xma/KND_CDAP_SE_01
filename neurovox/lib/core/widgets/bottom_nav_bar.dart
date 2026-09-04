@@ -4,10 +4,7 @@ class NavItem {
   final IconData icon;
   final String label;
 
-  const NavItem({
-    required this.icon,
-    required this.label,
-  });
+  const NavItem({required this.icon, required this.label});
 }
 
 class BottomNavBar extends StatelessWidget {
@@ -38,10 +35,6 @@ class BottomNavBar extends StatelessWidget {
     const double unselectedWidth = 48.0;
     const double padding = 6.0;
 
-    // Align with widthFactor/heightFactor = 1.0 shrink-wraps to the child's
-    // natural size (unlike Center, which expands to fill the parent's
-    // constraints). This is what stops the nav bar from ballooning to fill
-    // the whole bottomNavigationBar slot and covering the page content.
     return Align(
       alignment: Alignment.center,
       widthFactor: 1.0,
@@ -53,15 +46,30 @@ class BottomNavBar extends StatelessWidget {
         builder: (context, animValue, child) {
           final List<Rect> animatedRects = [];
           double currentX = padding;
+          final List<double> widths = [];
 
           for (int i = 0; i < items.length; i++) {
-            final double activeFactor = (1.0 - (animValue - i).abs()).clamp(0.0, 1.0);
-            final double width = unselectedWidth + (selectedWidth - unselectedWidth) * activeFactor;
-            animatedRects.add(Rect.fromLTWH(currentX, padding, width, itemHeight));
+            final double activeFactor = (1.0 - (animValue - i).abs()).clamp(
+              0.0,
+              1.0,
+            );
+            final double width =
+                unselectedWidth +
+                (selectedWidth - unselectedWidth) * activeFactor;
+            widths.add(width);
+          }
+
+          final double totalWidth =
+              widths.fold<double>(padding * 2, (sum, width) => sum + width) +
+              (itemSpacing * (items.length - 1));
+
+          for (final double width in widths) {
+            animatedRects.add(
+              Rect.fromLTWH(currentX, padding, width, itemHeight),
+            );
             currentX += width + itemSpacing;
           }
 
-          final double totalWidth = currentX - itemSpacing + padding;
           final double totalHeight = itemHeight + (padding * 2);
 
           return Container(
@@ -101,18 +109,24 @@ class BottomNavBar extends StatelessWidget {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOutCubicEmphasized,
-                              width: isSelected ? selectedWidth : unselectedWidth,
+                              width: isSelected
+                                  ? selectedWidth
+                                  : unselectedWidth,
                               height: itemHeight,
                               decoration: BoxDecoration(
                                 color: itemColor,
-                                borderRadius: BorderRadius.circular(itemHeight / 2),
+                                borderRadius: BorderRadius.circular(
+                                  itemHeight / 2,
+                                ),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
                                     item.icon,
-                                    color: isSelected ? activeTextColor : inactiveIconColor,
+                                    color: isSelected
+                                        ? activeTextColor
+                                        : inactiveIconColor,
                                     size: 22,
                                   ),
                                   if (isSelected) ...[
