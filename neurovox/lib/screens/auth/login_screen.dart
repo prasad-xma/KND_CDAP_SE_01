@@ -27,49 +27,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() {
     FocusScope.of(context).unfocus();
-    if (_formKey.currentState?.validate() ?? false) {
-      final String enteredName = _usernameController.text.trim().isNotEmpty
-          ? _usernameController.text.trim()
-          : 'Alex';
+    final String enteredName = _usernameController.text.trim().isNotEmpty
+        ? _usernameController.text.trim()
+        : 'Alex';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Text('Welcome back, $enteredName!'),
-            ],
-          ),
-          backgroundColor: const Color(0xFF0C9388),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-
-      // Seamlessly navigate to HomeScreen
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomeScreen(userName: enteredName),
-            ),
-            (route) => false,
-          );
-        }
-      });
-    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(userName: enteredName),
+      ),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     const Color bgMint = Color(0xFFD6ECE6);
     const Color primaryTeal = Color(0xFF0C9388);
-    const Color primaryTealLight = Color(0xFF0EC4B7);
     const Color darkGrey = Color(0xFF4A4A4A);
     const Color lightGrey = Color(0xFF7A7A7A);
 
@@ -192,12 +165,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             vertical: 16,
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your username';
-                          }
-                          return null;
-                        },
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -251,12 +218,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             vertical: 16,
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
-                          }
-                          return null;
-                        },
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -323,38 +284,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Login Button
-                    Container(
+                    SizedBox(
                       height: 56,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        gradient: const LinearGradient(
-                          colors: [primaryTealLight, primaryTeal],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryTeal.withValues(alpha: 0.35),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
+                      child: ElevatedButton(
+                        onPressed: _handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryTeal,
+                          foregroundColor: Colors.white,
+                          elevation: 8,
+                          shadowColor: primaryTeal.withValues(alpha: 0.35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: _handleLogin,
-                          child: const Center(
-                            child: Text(
-                              'Log In',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                        ),
+                        child: const Text(
+                          'Log In',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
