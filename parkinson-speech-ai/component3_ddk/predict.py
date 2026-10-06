@@ -12,7 +12,7 @@ import pandas as pd
 
 from .features import extract_ddk_features
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODEL_PATH = os.path.join(REPO_ROOT, "models", "component3_ddk_ddk_rf.joblib")
 
 

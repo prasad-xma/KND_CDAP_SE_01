@@ -1,7 +1,7 @@
 librosa
 praat-parselmouth
 soundfile
-scikit-learn
+scikit-learn>=1.9.0
 pandas
 numpy
 matplotlib

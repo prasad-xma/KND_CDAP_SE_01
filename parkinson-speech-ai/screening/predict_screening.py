@@ -35,11 +35,11 @@ from dataclasses import dataclass, asdict
 import joblib
 import pandas as pd
 
-from ..component1_robustness.quality_gate import check_quality
-from ..component2_phonation.features import extract_phonation_features
-from ..component3_ddk.features import extract_ddk_features
+from component1_robustness.quality_gate import check_quality
+from component2_phonation.features import extract_phonation_features
+from component3_ddk.features import extract_ddk_features
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODELS_DIR = os.path.join(REPO_ROOT, "models")
 VOWEL_MODEL_PATH = os.path.join(MODELS_DIR, "component2_phonation_vowel_combined_rf.joblib")
 DDK_MODEL_PATH = os.path.join(MODELS_DIR, "component3_ddk_ddk_rf.joblib")
@@ -129,35 +129,23 @@ def run_screening(vowel_wav_path, ddk_wav_path):
 
 
 def print_report(vowel_wav_path, ddk_wav_path, result):
-    """Pretty-print a screening report — designed to be screenshot-friendly."""
-    print("=" * 60)
-    print("  PARKINSON'S DISEASE VOICE SCREENING — REPORT")
-    print("=" * 60)
-    print(f"  Vowel recording : {os.path.basename(vowel_wav_path)}")
-    print(f"  DDK recording   : {os.path.basename(ddk_wav_path)}")
-    print("-" * 60)
-    print("  STAGE 2 — Component 1: Audio Quality Gate")
-    print(f"    Vowel: {result.quality_gate_vowel['message']}")
-    print(f"    DDK  : {result.quality_gate_ddk['message']}")
-    print("-" * 60)
+    """Print a screening report to stdout."""
+    print("PD voice screening report")
+    print(f"Vowel recording: {os.path.basename(vowel_wav_path)}")
+    print(f"DDK recording  : {os.path.basename(ddk_wav_path)}")
+    print(f"Quality gate - vowel: {result.quality_gate_vowel['message']}")
+    print(f"Quality gate - ddk  : {result.quality_gate_ddk['message']}")
 
     if result.stage_reached != "complete":
-        print(f"  STOPPED at stage: {result.stage_reached}")
-        print(f"  {result.message}")
-        print("=" * 60)
+        print(f"Stopped at: {result.stage_reached}")
+        print(result.message)
         return
 
-    print("  STAGE 3 — Parallel AI Components")
-    print(f"    Score A (Component 2, Phonation)     : {result.score_a_phonation:.1%} PD probability")
-    print(f"    Score B (Component 3, Speech-Motor)   : {result.score_b_speech_motor:.1%} PD probability")
-    print("-" * 60)
-    print("  STAGE 4 — Fusion (Score A + Score B)")
-    print(f"    Fused PD Screening Score              : {result.fused_score:.1%}")
-    print("-" * 60)
-    print("  STAGE 5 — Output")
-    print(f"    Classification: {result.classification}")
-    print(f"    {result.message}")
-    print("=" * 60)
+    print(f"Score A (phonation)    : {result.score_a_phonation:.1%} PD probability")
+    print(f"Score B (speech-motor) : {result.score_b_speech_motor:.1%} PD probability")
+    print(f"Fused score            : {result.fused_score:.1%}")
+    print(f"Classification: {result.classification}")
+    print(result.message)
 
 
 def main():

@@ -14,7 +14,7 @@ import os
 
 import pandas as pd
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CSV_PATH = os.path.join(REPO_ROOT, "data", "sakar_pd_dataset", "pd_speech_features.csv")
 
 NON_FEATURE_COLS = ["id", "gender", "class"]

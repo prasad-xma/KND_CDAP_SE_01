@@ -21,7 +21,7 @@ import os
 import pandas as pd
 
 from .sakar_dataset import load_sakar_features
-from ..common.model_evaluation import run_baseline, REPO_ROOT, RANDOM_STATE
+from common.model_evaluation import run_baseline, REPO_ROOT, RANDOM_STATE
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 

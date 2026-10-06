@@ -46,11 +46,11 @@ Run from the `parkinson-speech-ai/` directory (with `.venv` set up per
 `requirements.txt`):
 
 ```
-python -m src.component2_phonation.train
-python -m src.component2_phonation.train_vowel
-python -m src.component2_phonation.train_sakar
-python -m src.component2_phonation.predict path/to/recording.wav readtext
-python -m src.component2_phonation.predict path/to/recording.wav vowel
+python -m component2_phonation.train
+python -m component2_phonation.train_vowel
+python -m component2_phonation.train_sakar
+python -m component2_phonation.predict path/to/recording.wav readtext
+python -m component2_phonation.predict path/to/recording.wav vowel
 ```
 
 ## Notes / caveats

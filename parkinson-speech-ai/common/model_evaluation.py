@@ -21,7 +21,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedGroupKFold, cross_val_predict, cross_val_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, ConfusionMatrixDisplay
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODELS_DIR = os.path.join(REPO_ROOT, "models")
 
 N_SPLITS = 5

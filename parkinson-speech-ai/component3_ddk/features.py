@@ -12,7 +12,7 @@ variability (rhythm regularity), pause characteristics, and articulation
 import numpy as np
 import librosa
 
-from ..common.audio_io import ensure_wav
+from common.audio_io import ensure_wav
 
 FEATURE_NAMES = [
     "ddk_rate",

@@ -49,11 +49,11 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
 )
 
-from ..component2_phonation.features import FEATURE_NAMES as VOWEL_FEATURES
-from ..component3_ddk.features import FEATURE_NAMES as DDK_FEATURES
-from ..common.model_evaluation import RANDOM_STATE, MODELS_DIR
+from component2_phonation.features import FEATURE_NAMES as VOWEL_FEATURES
+from component3_ddk.features import FEATURE_NAMES as DDK_FEATURES
+from common.model_evaluation import RANDOM_STATE, MODELS_DIR
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "fusion")
 VOWEL_CSV = os.path.join(REPO_ROOT, "results", "component2_phonation", "italian_pvs_vowel_features.csv")
 DDK_CSV = os.path.join(REPO_ROOT, "results", "component3_ddk", "italian_pvs_ddk_features.csv")

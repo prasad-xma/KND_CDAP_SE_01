@@ -1,18 +1,22 @@
-"""Feature-selected, hyperparameter-tuned Sakar et al. baseline.
+"""Feature-selected, hyperparameter-tuned version of Component 2's best
+baseline (combined AH + Italian PVS sustained-vowel data).
 
-Tries SelectKBest feature selection + RF / SVM / HistGradientBoosting with
-class-imbalance handling, searched via RandomizedSearchCV using the same
-participant-grouped CV protocol as the other baselines (no leakage across a
-participant's 3 recordings).
+Same technique already used for the Sakar baseline (`train_sakar_tuned.py`):
+SelectKBest + RF / SVM / HistGradientBoosting with class-imbalance handling,
+searched via RandomizedSearchCV under the same participant-grouped CV
+protocol (no leakage across a participant's recordings). Reports whatever
+comes out — this is a legitimate search over models/features, not a target
+to hit a specific number.
 
 Usage:
-    python -m src.component2_phonation.train_sakar_tuned
+    python -m src.component2_phonation.train_vowel_combined_tuned
 """
 
 import os
 import json
 
 import joblib
+import pandas as pd
 
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.svm import SVC
@@ -27,8 +31,9 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
-from .sakar_dataset import load_sakar_features
-from ..common.model_evaluation import REPO_ROOT, MODELS_DIR, RANDOM_STATE
+from .train_vowel_combined import _load_ah, _load_italian
+from .features import FEATURE_NAMES
+from common.model_evaluation import REPO_ROOT, MODELS_DIR, RANDOM_STATE
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 N_SPLITS = 5
@@ -38,8 +43,14 @@ def main():
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    df, feature_names = load_sakar_features()
-    X = df[feature_names].values
+    ah_df = _load_ah()
+    ah_df["source"] = "AH_dataset"
+    ah_df["participant_id"] = "AH_" + ah_df["participant_id"].astype(str)
+    italian_df = _load_italian()
+    italian_df["source"] = "Italian_PVS"
+    df = pd.concat([ah_df, italian_df], ignore_index=True)
+
+    X = df[FEATURE_NAMES].values
     y = df["label"].values
     groups = df["participant_id"].values
 
@@ -54,7 +65,7 @@ def main():
         ("clf", SVC(kernel="rbf", class_weight="balanced", random_state=RANDOM_STATE)),
     ])
 
-    k_options = [30, 50, 100, 200, len(feature_names)]
+    k_options = [3, 5, 7, 10, len(FEATURE_NAMES)]  # only 10 features total here, unlike Sakar's 752
 
     param_distributions = [
         {
@@ -67,7 +78,7 @@ def main():
             "select__k": k_options,
             "clf": [RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE)],
             "clf__n_estimators": [200, 500],
-            "clf__max_depth": [None, 10, 20],
+            "clf__max_depth": [None, 5, 10, 20],
         },
         {
             "select__k": k_options,
@@ -80,7 +91,7 @@ def main():
     search = RandomizedSearchCV(
         pipe,
         param_distributions=param_distributions,
-        n_iter=25,
+        n_iter=30,
         scoring="balanced_accuracy",
         cv=cv,
         random_state=RANDOM_STATE,
@@ -105,8 +116,8 @@ def main():
     print("Confusion matrix:\n", cm)
 
     best_model.fit(X, y)
-    model_path = os.path.join(MODELS_DIR, "component2_phonation_sakar_tuned.joblib")
-    joblib.dump({"model": best_model, "feature_names": feature_names}, model_path)
+    model_path = os.path.join(MODELS_DIR, "component2_phonation_vowel_combined_tuned.joblib")
+    joblib.dump({"model": best_model, "feature_names": FEATURE_NAMES}, model_path)
     print(f"\nSaved tuned model to {model_path}")
 
     metrics = {
@@ -116,7 +127,7 @@ def main():
         "classification_report": report,
         "confusion_matrix": cm.tolist(),
     }
-    metrics_path = os.path.join(RESULTS_DIR, "sakar_tuned_metrics.json")
+    metrics_path = os.path.join(RESULTS_DIR, "vowel_combined_tuned_metrics.json")
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
     print(f"Saved metrics to {metrics_path}")

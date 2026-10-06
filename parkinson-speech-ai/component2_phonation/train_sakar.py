@@ -7,7 +7,7 @@ Usage:
 import os
 
 from .sakar_dataset import load_sakar_features
-from ..common.model_evaluation import run_baseline, REPO_ROOT
+from common.model_evaluation import run_baseline, REPO_ROOT
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 

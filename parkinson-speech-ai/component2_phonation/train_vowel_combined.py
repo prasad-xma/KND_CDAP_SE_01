@@ -20,7 +20,7 @@ import pandas as pd
 from .vowel_dataset import build_vowel_features, ensure_extracted as ensure_ah_extracted
 from .italian_pvs_dataset import build_italian_vowel_features, ensure_extracted as ensure_italian_extracted
 from .features import FEATURE_NAMES
-from ..common.model_evaluation import run_baseline, REPO_ROOT
+from common.model_evaluation import run_baseline, REPO_ROOT
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 AH_FEATURES_CSV = os.path.join(RESULTS_DIR, "vowel_a_features.csv")
