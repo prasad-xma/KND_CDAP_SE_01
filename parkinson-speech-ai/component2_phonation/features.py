@@ -13,7 +13,7 @@ import numpy as np
 import librosa
 import parselmouth
 
-from ..common.audio_io import ensure_wav
+from common.audio_io import ensure_wav
 
 F0_MIN_HZ = 70
 F0_MAX_HZ = 400

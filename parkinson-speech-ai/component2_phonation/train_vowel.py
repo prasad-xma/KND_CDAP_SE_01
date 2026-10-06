@@ -10,7 +10,7 @@ import pandas as pd
 
 from .vowel_dataset import build_vowel_features
 from .features import FEATURE_NAMES
-from ..common.model_evaluation import run_baseline, REPO_ROOT
+from common.model_evaluation import run_baseline, REPO_ROOT
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 FEATURES_CSV = os.path.join(RESULTS_DIR, "vowel_a_features.csv")

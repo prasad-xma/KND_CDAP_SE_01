@@ -17,7 +17,7 @@ import pandas as pd
 
 from .features import extract_phonation_features, FEATURE_NAMES
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(REPO_ROOT, "data", "vowel_task")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 DEMOGRAPHICS_XLSX = os.path.join(RAW_DIR, "Demographics_age_sex.xlsx")

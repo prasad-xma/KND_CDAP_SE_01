@@ -12,7 +12,7 @@ import pandas as pd
 
 from .features import extract_phonation_features
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODELS_DIR = os.path.join(REPO_ROOT, "models")
 
 
