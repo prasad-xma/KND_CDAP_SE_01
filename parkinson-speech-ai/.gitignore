@@ -3,7 +3,9 @@
 data/raw/
 data/vowel_task/raw/
 data/italian_pvs/raw/
+data/sinhala_speech_openslr52/raw/
 
 # Source archives >100MB — GitHub hard-rejects files this size, never commit these.
 data/26_29_09_2017_KCL.zip
 data/italian_pvs/italian_pvs.zip
+data/sinhala_speech_openslr52/asr_sinhala_0.zip
