@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/widgets/bottom_nav_bar.dart';
-import 'phonation_test_screen.dart';
+import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
 

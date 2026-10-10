@@ -11,3 +11,6 @@ imageio-ffmpeg
 noisereduce
 pystoi
 pesq
+fastapi
+uvicorn[standard]
+python-multipart
