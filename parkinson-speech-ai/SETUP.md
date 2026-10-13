@@ -46,6 +46,13 @@ Always run commands from `parkinson-speech-ai/` (not the repo root) — the code
 is invoked as a module, e.g. `python -m src.component2_phonation.train`, which
 only resolves correctly from this directory.
 
+**Windows note:** `pesq` (in requirements.txt, used only by
+`evaluate_enhancement.py` for one optional quality metric) needs a C compiler
+to build and will fail on plain Windows without Visual C++ Build Tools. If it
+fails, either install "Microsoft C++ Build Tools" or just remove `pesq` from
+your local install — everything else works without it. It installs cleanly
+on Colab/Linux with no extra setup.
+
 ## 3. Project layout
 
 ```
@@ -55,6 +62,9 @@ parkinson-speech-ai/
     component1_robustness/
     component2_phonation/
     component3_ddk/
+    fusion/                Component 3's fusion ablation (vowel+DDK -> Score A+B)
+    screening/              end-to-end pipeline: quality gate -> Score A/B -> fused PD Screening Score
+  notebooks/colab_pipeline.ipynb          runs the whole pipeline on Colab
   data/                   datasets (see "Getting the data" below)
   models/                 pretrained .joblib models — already committed, ready to use
   notebooks/              exploratory / baseline notebooks
@@ -103,8 +113,19 @@ component — see each component's README for the exact command.
 | Component | Command |
 |---|---|
 | 1 — Robustness | `python -m src.component1_robustness.experiment` |
+| 1 — Enhancement + quality gate | `python -m src.component1_robustness.evaluate_enhancement` |
+| 1 — Quality gate precision/recall | `python -m src.component1_robustness.validate_quality_gate` |
 | 2 — Phonation | `python -m src.component2_phonation.train_vowel_combined` |
 | 3 — DDK | `python -m src.component3_ddk.train` |
+| 3 — Fusion ablation | `python -m src.fusion.train_italian_pvs_fusion` |
+| Final Score — end-to-end | `python -m src.screening.predict_screening path\to\vowel.wav path\to\ddk.wav` |
+
+`evaluate_enhancement.py` and `train_italian_pvs_fusion.py` both need
+`data/italian_pvs/italian_pvs.zip` (see "Getting the data" above) —
+`train_italian_pvs_fusion.py` also needs
+`results/component2_phonation/italian_pvs_vowel_features.csv` and
+`results/component3_ddk/italian_pvs_ddk_features.csv`, which are produced by
+running Component 2's and Component 3's own training scripts first.
 
 ## Common gotchas
 

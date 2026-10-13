@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Personal working files - not for the shared repo
+/proposal report/
+/check/
+parkinson-speech-ai/docs/Component2_Proposal_Report.docx
+~$*.docx

@@ -1,10 +1,16 @@
 librosa
 praat-parselmouth
 soundfile
-scikit-learn
+scikit-learn>=1.9.0
 pandas
 numpy
 matplotlib
 joblib
 openpyxl
 imageio-ffmpeg
+noisereduce
+pystoi
+pesq
+fastapi
+uvicorn[standard]
+python-multipart
