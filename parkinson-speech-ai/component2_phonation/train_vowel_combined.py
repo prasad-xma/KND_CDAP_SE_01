@@ -19,12 +19,14 @@ import pandas as pd
 
 from .vowel_dataset import build_vowel_features, ensure_extracted as ensure_ah_extracted
 from .italian_pvs_dataset import build_italian_vowel_features, ensure_extracted as ensure_italian_extracted
+from .kaggle_voice_dataset import build_kaggle_vowel_features, ensure_extracted as ensure_kaggle_extracted
 from .features import FEATURE_NAMES
 from common.model_evaluation import run_baseline, REPO_ROOT
 
 RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 AH_FEATURES_CSV = os.path.join(RESULTS_DIR, "vowel_a_features.csv")
 ITALIAN_FEATURES_CSV = os.path.join(RESULTS_DIR, "italian_pvs_vowel_features.csv")
+KAGGLE_FEATURES_CSV = os.path.join(RESULTS_DIR, "kaggle_voice_features.csv")
 
 
 def _load_ah():
@@ -47,6 +49,16 @@ def _load_italian():
     return df
 
 
+def _load_kaggle():
+    if os.path.exists(KAGGLE_FEATURES_CSV):
+        print(f"Loading cached Kaggle-dataset features from {KAGGLE_FEATURES_CSV}")
+        return pd.read_csv(KAGGLE_FEATURES_CSV)
+    ensure_kaggle_extracted()
+    df = build_kaggle_vowel_features()
+    df.to_csv(KAGGLE_FEATURES_CSV, index=False)
+    return df
+
+
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -58,7 +70,10 @@ def main():
     italian_df = _load_italian()
     italian_df["source"] = "Italian_PVS"
 
-    combined = pd.concat([ah_df, italian_df], ignore_index=True)
+    kaggle_df = _load_kaggle()
+    kaggle_df["source"] = "Kaggle_UCI"
+
+    combined = pd.concat([ah_df, italian_df, kaggle_df], ignore_index=True)
 
     print(f"\nCombined total recordings: {len(combined)}")
     print(f"PD: {sum(combined['label'] == 1)}  HC: {sum(combined['label'] == 0)}")
