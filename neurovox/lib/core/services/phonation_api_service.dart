@@ -5,27 +5,9 @@ import 'package:http/http.dart' as http;
 
 import '../models/phonation_result.dart';
 
-/// Talks to Component 2's standalone FastAPI server
-/// (parkinson-speech-ai/component2_phonation/api.py).
-///
-/// EDIT [baseUrl] below to match how you're running the app:
-///   - Chrome (web)      -> http://127.0.0.1:8000          (current default)
-///   - Windows desktop   -> http://127.0.0.1:8000
-///   - Android emulator  -> http://10.0.2.2:8000          (emulator's alias for the host machine)
-///   - iOS simulator     -> http://127.0.0.1:8000          (simulator shares the host's network)
-///   - Physical phone    -> http://<your-laptop-LAN-IP>:8000  (e.g. http://192.168.1.23:8000 - find
-///                          it with `ipconfig` on Windows; phone and laptop must be on the same wifi)
 class PhonationApiService {
   static const String baseUrl = 'http://127.0.0.1:8000';
 
-  /// Uploads a recording (native platforms - real file on disk) and returns
-  /// the PD/HC prediction. Throws an [Exception] with a readable message on
-  /// any failure.
-  ///
-  /// [extractVowelSegment]: false measures the whole recording as-is; true
-  /// crops out the longest vowel-like segment first and measures only that
-  /// (see api.py's screen_phonation docstring - this exists to compare the
-  /// two approaches head to head on phrase recordings).
   static Future<PhonationResult> screenVowelRecording(
     String filePath, {
     bool extractVowelSegment = false,
@@ -36,8 +18,6 @@ class PhonationApiService {
     return _sendAndParse(request);
   }
 
-  /// Same as [screenVowelRecording] but from raw bytes (web - recordings
-  /// live in browser memory/a blob, not on a real filesystem).
   static Future<PhonationResult> screenVowelRecordingBytes(
     List<int> bytes, {
     String filename = 'recording.wav',
@@ -49,9 +29,36 @@ class PhonationApiService {
     return _sendAndParse(request);
   }
 
+  static Future<PhonationDualResult> screenDualRecording({
+    required String vowelFilePath,
+    required String phraseFilePath,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/phonation/screen_dual'))
+      ..files.add(await http.MultipartFile.fromPath('vowel_audio', vowelFilePath))
+      ..files.add(await http.MultipartFile.fromPath('phrase_audio', phraseFilePath));
+    return _sendAndParseDual(request);
+  }
+
+  static Future<PhonationDualResult> screenDualRecordingBytes({
+    required List<int> vowelBytes,
+    required List<int> phraseBytes,
+    String vowelFilename = 'vowel_recording.wav',
+    String phraseFilename = 'phrase_recording.wav',
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/phonation/screen_dual'))
+      ..files.add(http.MultipartFile.fromBytes('vowel_audio', vowelBytes, filename: vowelFilename))
+      ..files.add(http.MultipartFile.fromBytes('phrase_audio', phraseBytes, filename: phraseFilename));
+    return _sendAndParseDual(request);
+  }
+
   static Future<PhonationResult> _sendAndParse(http.MultipartRequest request) async {
     final json = await _send(request);
     return PhonationResult.fromJson(json);
+  }
+
+  static Future<PhonationDualResult> _sendAndParseDual(http.MultipartRequest request) async {
+    final json = await _send(request);
+    return PhonationDualResult.fromJson(json);
   }
 
   static Future<Map<String, dynamic>> _send(http.MultipartRequest request) async {

@@ -82,8 +82,9 @@ Not all data lives in git — some source archives are intentionally excluded
 
 | In git already | Not in git — ask a teammate or re-download |
 |---|---|
-| `data/sakar_pd_dataset/pd_speech_features.csv` | `data/26_29_09_2017_KCL.zip` (MDVR-KCL dataset, ~580MB) |
-| `data/vowel_task/23849127.zip` ("AH" vowel dataset) | `data/italian_pvs/italian_pvs.zip` (Italian PVS dataset, ~570MB) |
+| `data/vowel_task/sakar_pd_dataset/pd_speech_features.csv` | `data/zip_files/26_29_09_2017_KCL.zip` (MDVR-KCL dataset, ~580MB) |
+| `data/zip_files/23849127.zip` ("AH" vowel dataset) | `data/italian_pvs/italian_pvs.zip` (Italian PVS dataset, ~570MB) |
+| `data/zip_files/Kaggle.zip` (Kaggle UCI vowel dataset, ~56MB, CC0) | `data/zip_files/asr_sinhala_0.zip` (OpenSLR-52 Sinhala corpus, ~915MB) |
 | `data/test_audio/` (sample recordings) | |
 
 If you're working on Component 2 or 3 and need the large archives, ask

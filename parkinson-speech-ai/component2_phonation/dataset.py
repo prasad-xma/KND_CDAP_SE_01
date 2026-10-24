@@ -1,7 +1,8 @@
 """Dataset loading for the Component 2 MDVR-KCL baseline.
 
-Handles extracting the local zip (parkinson-speech-ai/data/26_29_09_2017_KCL.zip)
-and building a features dataframe for the ReadText task, PD vs HC.
+Handles extracting the local zip
+(parkinson-speech-ai/data/zip_files/26_29_09_2017_KCL.zip) and building a
+features dataframe for the ReadText task, PD vs HC.
 """
 
 import os
@@ -14,20 +15,20 @@ import pandas as pd
 from .features import extract_phonation_features, FEATURE_NAMES
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA_DIR = os.path.join(REPO_ROOT, "data")
-ZIP_PATH = os.path.join(DATA_DIR, "26_29_09_2017_KCL.zip")
+DATA_DIR = os.path.join(REPO_ROOT, "data", "continuous_speech")
+ZIP_PATH = os.path.join(REPO_ROOT, "data", "zip_files", "26_29_09_2017_KCL.zip")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 DATASET_ROOT = os.path.join(RAW_DIR, "26-29_09_2017_KCL")
 
 
 def ensure_extracted(zip_path=ZIP_PATH, extract_to=RAW_DIR):
-    """Extract the MDVR-KCL zip into data/raw/ if not already extracted."""
+    """Extract the MDVR-KCL zip into data/continuous_speech/raw/ if not already extracted."""
     if os.path.isdir(DATASET_ROOT):
         return DATASET_ROOT
 
     if not os.path.exists(zip_path):
         raise FileNotFoundError(
-            f"Dataset zip not found at {zip_path}. Place 26_29_09_2017_KCL.zip in data/."
+            f"Dataset zip not found at {zip_path}. Place 26_29_09_2017_KCL.zip in data/zip_files/."
         )
 
     os.makedirs(extract_to, exist_ok=True)

@@ -1,8 +1,12 @@
 const Map<String, String> slSlStrings = {
   'title': 'ස්වර පරීක්ෂණය',
   'subtitle': 'අඛණ්ඩ ස්වර ශබ්ද ලක්ෂණ විශ්ලේෂණය',
-  'taskTitle': '"අ" ස්වරය දිගට පවත්වාගෙන යාමේ Task එක',
-  'taskDesc': 'ගැඹුරු හුස්මක් අරගෙන, පහසු හඬකින් "අ" ශබ්දය mic එකට තත්පර 5ක් පුරා අඛණ්ඩව, ස්ථාවරව කියන්න.',
+  'taskTitle': 'Steps 2ක Voice Check එකක්',
+  'taskDesc': 'Recordings 2ක් විතරයි: මුලින්ම ස්වර sound එකක් ස්ථාවරව කියන්න, පස්සේ කෙටි sentence එකක් කියවන්න. Total තත්පර 20ක් විතර.',
+  'step1Badge': 'STEP 1 OF 2',
+  'step2Badge': 'STEP 2 OF 2',
+  'step1Title': '"අ" ස්වරය දිගට පවත්වාගෙන යාමේ Task එක',
+  'step1Instruction': 'ගැඹුරු හුස්මක් අරගෙන, පහසු හඬකින් "අ" ශබ්දය mic එකට තත්පර 5ක් පුරා අඛණ්ඩව, ස්ථාවරව කියන්න.',
   'toggleExtractOn': 'මුලින්ම ස්වර කොටස වෙන් කරගෙන, පස්සේ measure කරනවා',
   'toggleExtractOff': 'මුළු recording එකම කැපීමක් නැතුව measure කරනවා',
   'beginButton': 'Task එක ආරම්භ කරන්න',
@@ -14,6 +18,26 @@ const Map<String, String> slSlStrings = {
   'jitter': 'Jitter (local)',
   'shimmer': 'Shimmer (local)',
   'hnr': 'Harmonics-to-Noise (HNR)',
+  'viewMoreParams': 'තවත් parameters බලන්න',
+  'viewLessParams': 'අඩුවෙන් බලන්න',
+  'stdF0': 'F0 Std Dev',
+  'maxF0': 'F0 උපරිමය',
+  'meanRms': 'Mean RMS Energy',
+  'stdRms': 'RMS Energy Std Dev',
+  'meanZcr': 'Mean Zero-Crossing Rate',
+  'stdZcr': 'Zero-Crossing Rate Std Dev',
+  'reasonTitle': 'මේ ප්‍රතිඵලයට හේතුව මොකක්ද?',
+  'jitterNormalMsg': 'සාමාන්‍ය පරාසය තුළයි (1.04%ට අඩු) — මෙතනින් PD ලක්ෂණයක් පෙන්වන්නේ නෑ.',
+  'jitterHighMsg':
+      'සාමාන්‍ය පරාසයට වඩා වැඩියි (1.04%ට අඩු විය යුතුයි) — vocal fold vibration එක අනියමිතයි, PD වලදී සාමාන්‍යයෙන් දකින ලක්ෂණයක්.',
+  'shimmerNormalMsg': 'සාමාන්‍ය පරාසය තුළයි (3.81%ට අඩු) — මෙතනින් PD ලක්ෂණයක් පෙන්වන්නේ නෑ.',
+  'shimmerHighMsg':
+      'සාමාන්‍ය පරාසයට වඩා වැඩියි (3.81%ට අඩු විය යුතුයි) — amplitude එකේ ස්ථාවරත්වයක් නැහැ, PD වලදී සාමාන්‍යයෙන් දකින ලක්ෂණයක්.',
+  'hnrNormalMsg': 'සාමාන්‍ය පරාසය තුළයි (20dBට වැඩි) — මෙතනින් PD ලක්ෂණයක් පෙන්වන්නේ නෑ.',
+  'hnrLowMsg':
+      'සාමාන්‍ය පරාසයට වඩා අඩුයි (20dBට වැඩි විය යුතුයි) — හඬේ noise/breathiness වැඩියි, PD වලදී සාමාන්‍යයෙන් දකින ලක්ෂණයක්.',
+  'reasonDisclaimer':
+      'මේ reference ranges තියෙන්නේ context එකට විතරයි — model එකේ අනාවැකිය පදනම් වෙන්නේ features 10ම එකතු කරගෙනයි, මේ තුන විතරක් නෙවෙයි.',
   'modalTitle': 'හඬ පරීක්ෂණය',
   'modalInstruction': 'කරුණාකර "අ" ස්වරය mic එකට තත්පර 5ක් ස්ථාවරව කියන්න.',
   'analyzing': 'විශ්ලේෂණය කරමින්...',
@@ -28,6 +52,10 @@ const Map<String, String> slSlStrings = {
   'resultIntro': 'Component 2 ගේ phonation model එකෙන් ලැබුණු සැබෑ ප්‍රතිඵලය (vowel-combined tuned, 82.7% CV accuracy).',
   'resultIntroReadtext':
       'Component 2 ගේ ReadText model එකෙන් ලැබුණු සැබෑ ප්‍රතිඵලය (MDVR-KCL English passage recordings වලින් train කරපු, ~78% CV accuracy).',
+  'resultIntroDual':
+      'Task දෙකෙන්ම fuse කරපු ප්‍රතිඵලය: sustained-vowel model එක (82.7% CV accuracy) සහ read-aloud model එක (~78% CV accuracy), average කරලා.',
+  'vowelTaskLabel': 'Vowel Task',
+  'phraseTaskLabel': 'Phrase Task',
   'modelPrediction': 'Model එකේ අනාවැකිය:',
   'pdIndicators': 'PD ලක්ෂණ',
   'hcRange': 'සෞඛ්‍ය සම්පන්න පරාසය',
