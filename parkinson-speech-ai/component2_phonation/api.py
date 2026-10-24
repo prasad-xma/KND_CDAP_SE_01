@@ -55,34 +55,30 @@ def health():
     }
 
 
-@app.post("/phonation/screen")
-async def screen_phonation(
-    audio: UploadFile = File(...),
-    extract_vowel_segment: bool = Form(False),
-):
-    """Accepts one recording, returns a PD/HC prediction + raw phonation
-    features from Component 2's own model.
-
-    `extract_vowel_segment` controls HOW the recording is measured, AND
-    which trained model is applied - each setting uses the model that
-    actually matches what it's being fed, so the prediction is meaningful
-    either way (applying the vowel model to a whole untrimmed phrase
-    recording would be testing it outside what it was ever trained on):
-      - True: the longest vowel-like segment is cropped out first (see
-        vowel_segmentation.py) and only that is measured - the cropped clip
-        resembles a sustained-vowel recording, so the vowel-combined-tuned
-        model (82.7% CV accuracy) is used.
-      - False (default): the whole recording is measured as-is. This is
-        the ReadText baseline's own approach, so the readtext-trained model
-        (~78% CV accuracy, trained on MDVR-KCL English passage recordings)
-        is used instead of the vowel model.
-    """
-    ext = os.path.splitext(audio.filename or "")[1].lower()
+def _validate_extension(upload: UploadFile) -> str:
+    ext = os.path.splitext(upload.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported file type {ext!r}. Use one of {ALLOWED_EXTENSIONS}.",
         )
+    return ext
+
+
+def _log_result(label: str, response: dict) -> None:
+    f = response["features"]
+    print(
+        f"[RESULT] {label:<11}-> {response['prediction']:>2}  "
+        f"P(PD)={response['probability_pd']:.3f}  "
+        f"model={response['model_used']:<19}  "
+        f"F0={f['mean_f0']:.1f}Hz  jitter={f['jitter'] * 100:.2f}%  "
+        f"shimmer={f['shimmer'] * 100:.2f}%  HNR={f['hnr']:.1f}dB",
+        flush=True,
+    )
+
+
+async def _score_recording(audio: UploadFile, extract_vowel_segment: bool) -> dict:
+    ext = _validate_extension(audio)
 
     fd, tmp_path = tempfile.mkstemp(suffix=ext)
     os.close(fd)
@@ -129,3 +125,59 @@ async def screen_phonation(
     if segment_info:
         response.update(segment_info)
     return response
+
+
+@app.post("/phonation/screen")
+async def screen_phonation(
+    audio: UploadFile = File(...),
+    extract_vowel_segment: bool = Form(False),
+):
+    """Accepts one recording, returns a PD/HC prediction + raw phonation
+    features from Component 2's own model.
+
+    `extract_vowel_segment` controls HOW the recording is measured, AND
+    which trained model is applied - each setting uses the model that
+    actually matches what it's being fed, so the prediction is meaningful
+    either way (applying the vowel model to a whole untrimmed phrase
+    recording would be testing it outside what it was ever trained on):
+      - True: the longest vowel-like segment is cropped out first (see
+        vowel_segmentation.py) and only that is measured - the cropped clip
+        resembles a sustained-vowel recording, so the vowel-combined-tuned
+        model (82.7% CV accuracy) is used.
+      - False (default): the whole recording is measured as-is. This is
+        the ReadText baseline's own approach, so the readtext-trained model
+        (~78% CV accuracy, trained on MDVR-KCL English passage recordings)
+        is used instead of the vowel model.
+    """
+    response = await _score_recording(audio, extract_vowel_segment)
+    _log_result("SINGLE", response)
+    return response
+
+
+@app.post("/phonation/screen_dual")
+async def screen_phonation_dual(
+    vowel_audio: UploadFile = File(...),
+    phrase_audio: UploadFile = File(...),
+):
+    vowel_result = await _score_recording(vowel_audio, extract_vowel_segment=True)
+    phrase_result = await _score_recording(phrase_audio, extract_vowel_segment=False)
+
+    fused_probability_pd = (vowel_result["probability_pd"] + phrase_result["probability_pd"]) / 2
+    fused_probability_hc = 1 - fused_probability_pd
+    fused_prediction = "PD" if fused_probability_pd >= 0.5 else "HC"
+
+    _log_result("VOWEL", vowel_result)
+    _log_result("PHRASE", phrase_result)
+    print(
+        f"[RESULT] FUSED      -> {fused_prediction:>2}  "
+        f"P(PD)={fused_probability_pd:.3f}  P(HC)={fused_probability_hc:.3f}",
+        flush=True,
+    )
+
+    return {
+        "prediction": fused_prediction,
+        "probability_pd": fused_probability_pd,
+        "probability_hc": fused_probability_hc,
+        "vowel_task": vowel_result,
+        "phrase_task": phrase_result,
+    }

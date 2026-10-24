@@ -1,0 +1,47 @@
+{
+  "best_params": {
+    "select__k": "10",
+    "clf__gamma": "0.01",
+    "clf__C": "0.1",
+    "clf": "SVC(class_weight='balanced', random_state=42)"
+  },
+  "cv_accuracy": 0.676923076923077,
+  "cv_balanced_accuracy": 0.7506377551020409,
+  "classification_report": {
+    "HC": {
+      "precision": 0.42574257425742573,
+      "recall": 0.8958333333333334,
+      "f1-score": 0.5771812080536913,
+      "support": 48.0
+    },
+    "PD": {
+      "precision": 0.9468085106382979,
+      "recall": 0.6054421768707483,
+      "f1-score": 0.7385892116182573,
+      "support": 147.0
+    },
+    "accuracy": 0.676923076923077,
+    "macro avg": {
+      "precision": 0.6862755424478618,
+      "recall": 0.7506377551020409,
+      "f1-score": 0.6578852098359743,
+      "support": 195.0
+    },
+    "weighted avg": {
+      "precision": 0.8185461262983909,
+      "recall": 0.676923076923077,
+      "f1-score": 0.6988580107408257,
+      "support": 195.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      43,
+      5
+    ],
+    [
+      58,
+      89
+    ]
+  ]
+}

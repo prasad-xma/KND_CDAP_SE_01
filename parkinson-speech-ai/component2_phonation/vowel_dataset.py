@@ -1,6 +1,6 @@
 """Dataset loading for the Component 2 sustained-vowel /a/ ("AH") dataset.
 
-Expects a single zip in data/vowel_task/ containing:
+Expects the outer zip at data/zip_files/23849127.zip, containing:
     Demographics_age_sex.xlsx   (columns: Sample ID, Label, Age, Sex)
     PD_AH.zip                   (PD_AH/*.wav)
     HC_AH.zip                   (HC_AH/*.wav)
@@ -10,7 +10,6 @@ audio file by exact filename (Sample ID == wav filename without ".wav").
 """
 
 import os
-import glob
 import zipfile
 
 import pandas as pd
@@ -19,6 +18,8 @@ from .features import extract_phonation_features, FEATURE_NAMES
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(REPO_ROOT, "data", "vowel_task")
+ZIP_FILES_DIR = os.path.join(REPO_ROOT, "data", "zip_files")
+OUTER_ZIP_PATH = os.path.join(ZIP_FILES_DIR, "23849127.zip")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 DEMOGRAPHICS_XLSX = os.path.join(RAW_DIR, "Demographics_age_sex.xlsx")
 
@@ -26,16 +27,11 @@ LABEL_MAP = {"PwPD": 1, "HC": 0}
 
 
 def _find_outer_zip():
-    zips = glob.glob(os.path.join(DATA_DIR, "*.zip"))
-    if not zips:
+    if not os.path.exists(OUTER_ZIP_PATH):
         raise FileNotFoundError(
-            f"No zip file found in {DATA_DIR}. Place the vowel-task zip there."
+            f"Vowel-task zip not found at {OUTER_ZIP_PATH}. Place 23849127.zip there."
         )
-    if len(zips) > 1:
-        raise FileNotFoundError(
-            f"Multiple zip files found in {DATA_DIR}: {zips}. Keep only one."
-        )
-    return zips[0]
+    return OUTER_ZIP_PATH
 
 
 def ensure_extracted():

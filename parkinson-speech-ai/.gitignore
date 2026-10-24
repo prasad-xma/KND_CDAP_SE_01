@@ -1,11 +1,7 @@
 
-# Component 2 - extracted raw audio (large, regenerated from data/*.zip)
-data/raw/
-data/vowel_task/raw/
-data/italian_pvs/raw/
-data/sinhala_speech_openslr52/raw/
-
-# Source archives >100MB — GitHub hard-rejects files this size, never commit these.
-data/26_29_09_2017_KCL.zip
-data/italian_pvs/italian_pvs.zip
-data/sinhala_speech_openslr52/asr_sinhala_0.zip
+# data/ - excluded entirely (datasets are large, would bloat the GitHub repo).
+# READMEs are kept so dataset structure/provenance stays documented without
+# needing the actual files. Ask a teammate for a copy instead of pushing data.
+data/**
+!data/**/
+!data/**/*.md

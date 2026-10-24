@@ -8,7 +8,7 @@ CV/training code.
 |---|---|---|---|---|
 | ReadText (stand-in) | MDVR-KCL `ReadText` | 37 | 37 (16 PD / 21 HC) | ~78% |
 | Sustained vowel /a/ (own extraction) | `data/vowel_task/` ("AH") | 80 | 80 (40 PD / 40 HC) | ~68% |
-| Sustained vowel /a/ (Sakar et al. 2018) | `data/sakar_pd_dataset/` | 756 | 252 (188 PD / 64 HC) | ~80.5% RF / ~82% SVM |
+| Sustained vowel /a/ (Sakar et al. 2018) | `data/vowel_task/sakar_pd_dataset/` | 756 | 252 (188 PD / 64 HC) | ~80.5% RF / ~82% SVM |
 | Sustained vowel /a/, **combined raw audio** (AH + Italian PVS) | `train_vowel_combined.py` | 179 | 126 (95 PD / 84 HC) | ~81.0%, balanced precision/recall |
 
 The Sakar dataset is by far the strongest baseline here — much larger, and it's
