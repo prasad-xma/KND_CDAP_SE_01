@@ -1,0 +1,7 @@
+
+# data/ - excluded entirely (datasets are large, would bloat the GitHub repo).
+# READMEs are kept so dataset structure/provenance stays documented without
+# needing the actual files. Ask a teammate for a copy instead of pushing data.
+data/**
+!data/**/
+!data/**/*.md

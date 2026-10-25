@@ -1,0 +1,80 @@
+{
+  "n_recordings": 80,
+  "n_pd": 40,
+  "n_hc": 40,
+  "n_participants": 80,
+  "cv_splits": 5,
+  "cv_summary": {
+    "random_forest": {
+      "fold_accuracies": [
+        0.5625,
+        0.625,
+        0.5625,
+        0.6875,
+        0.9375
+      ],
+      "mean": 0.675,
+      "std": 0.13919410907075055
+    },
+    "svm_rbf": {
+      "fold_accuracies": [
+        0.5625,
+        0.625,
+        0.6875,
+        0.75,
+        0.6875
+      ],
+      "mean": 0.6625,
+      "std": 0.0637377439199098
+    },
+    "logistic_regression": {
+      "fold_accuracies": [
+        0.5,
+        0.5625,
+        0.5,
+        0.875,
+        0.6875
+      ],
+      "mean": 0.625,
+      "std": 0.14252192813739226
+    }
+  },
+  "random_forest_cv_accuracy": 0.675,
+  "random_forest_cv_classification_report": {
+    "HC": {
+      "precision": 0.675,
+      "recall": 0.675,
+      "f1-score": 0.675,
+      "support": 40.0
+    },
+    "PD": {
+      "precision": 0.675,
+      "recall": 0.675,
+      "f1-score": 0.675,
+      "support": 40.0
+    },
+    "accuracy": 0.675,
+    "macro avg": {
+      "precision": 0.675,
+      "recall": 0.675,
+      "f1-score": 0.675,
+      "support": 80.0
+    },
+    "weighted avg": {
+      "precision": 0.675,
+      "recall": 0.675,
+      "f1-score": 0.675,
+      "support": 80.0
+    }
+  },
+  "random_forest_cv_confusion_matrix": [
+    [
+      27,
+      13
+    ],
+    [
+      13,
+      27
+    ]
+  ]
+}
