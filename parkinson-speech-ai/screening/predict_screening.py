@@ -20,11 +20,16 @@ Fusion is a plain average of Score A and Score B ("Score A + B" per slide 26/
 performs at least as well as feature-level/stacked fusion — with no extra
 meta-learner dependency to keep track of.
 
+Component 1 (component1_robustness.pipeline.run_gate) checks, enhances and
+gates each recording; Components 2/3 then read the audio Component 1 chose to
+forward (enhanced, or raw when enhancement would alter the biomarkers) rather
+than the original upload.
+
 IMPORTANT: this is a decision-support screening output, not a diagnosis (see
 slide 5's own disclaimer) — never present it as one.
 
 Usage:
-    python -m src.screening.predict_screening path/to/vowel.wav path/to/ddk.wav
+    python -m screening.predict_screening path/to/vowel.wav path/to/ddk.wav
 """
 
 import os
@@ -35,7 +40,8 @@ from dataclasses import dataclass, asdict
 import joblib
 import pandas as pd
 
-from component1_robustness.quality_gate import check_quality
+from component1_robustness.config import load_config
+from component1_robustness.pipeline import run_gate
 from component2_phonation.features import extract_phonation_features
 from component3_ddk.features import extract_ddk_features
 
@@ -73,22 +79,37 @@ def _load_models():
     return vowel_bundle, ddk_bundle
 
 
-def run_screening(vowel_wav_path, ddk_wav_path):
+def _gate_summary(report):
+    """Component 1 report -> the same 5 keys the old QualityGateResult had (output unchanged)."""
+    preserved = (report["feature_preserved"] or {}).get("preserved", False)
+    judged = (report["quality_after"] if preserved else report["quality_before"]) or {}
+    return {
+        "passed": report["decision"] == "PASS",
+        "estimated_snr_db": judged.get("estimated_snr_db"),
+        "method": judged.get("method"),
+        "level_dbfs": judged.get("level_dbfs"),
+        "message": report["user_message"],
+    }
+
+
+def run_screening(vowel_wav_path, ddk_wav_path, config=None):
     """Run the full pipeline on one patient's two recordings and return a ScreeningResult."""
-    gate_vowel = check_quality(vowel_wav_path)
-    gate_ddk = check_quality(ddk_wav_path)
+    config = config or load_config()
+    vowel_report = run_gate(vowel_wav_path, "vowel", config)
+    ddk_report = run_gate(ddk_wav_path, "ddk", config)
+    gate_vowel, gate_ddk = _gate_summary(vowel_report), _gate_summary(ddk_report)
 
     result = ScreeningResult(
         stage_reached="quality_gate",
-        quality_gate_vowel=asdict(gate_vowel),
-        quality_gate_ddk=asdict(gate_ddk),
+        quality_gate_vowel=gate_vowel,
+        quality_gate_ddk=gate_ddk,
     )
 
-    if not gate_vowel.passed or not gate_ddk.passed:
+    if not gate_vowel["passed"] or not gate_ddk["passed"]:
         failed = []
-        if not gate_vowel.passed:
+        if not gate_vowel["passed"]:
             failed.append("sustained vowel ('aaaaaa')")
-        if not gate_ddk.passed:
+        if not gate_ddk["passed"]:
             failed.append("DDK ('pa-ta-ka')")
         result.message = (
             f"Recording(s) flagged unreliable by the quality gate: {', '.join(failed)}. "
@@ -99,8 +120,9 @@ def run_screening(vowel_wav_path, ddk_wav_path):
 
     vowel_bundle, ddk_bundle = _load_models()
 
-    vowel_feats = extract_phonation_features(vowel_wav_path)
-    ddk_feats = extract_ddk_features(ddk_wav_path)
+    # Components 2/3 read the audio Component 1 forwarded, not the original upload.
+    vowel_feats = extract_phonation_features(vowel_report["audio_for_next_stage"])
+    ddk_feats = extract_ddk_features(ddk_report["audio_for_next_stage"])
 
     if vowel_feats is None or ddk_feats is None:
         result.stage_reached = "feature_extraction_failed"
@@ -150,7 +172,7 @@ def print_report(vowel_wav_path, ddk_wav_path, result):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python -m src.screening.predict_screening <vowel.wav> <ddk.wav>")
+        print("Usage: python -m screening.predict_screening <vowel.wav> <ddk.wav>")
         sys.exit(1)
 
     vowel_wav_path, ddk_wav_path = sys.argv[1], sys.argv[2]

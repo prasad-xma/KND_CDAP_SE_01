@@ -9,25 +9,12 @@ with clean audio stays high (0.80-1.0) at 10dB injected SNR and above, then
 collapses sharply below it (0.64 at 5dB, 0.59 at 0dB). 10dB is therefore
 where this project's own evidence says a recording stops being trustworthy.
 
-Two estimators, picked per-recording, because one metric doesn't work for
-both task types:
-  - Silence-based blind SNR (loudest frames vs quietest/silent frames) —
-    works for DDK ("pa-ta-ka") recordings, which have genuine pauses between
-    syllables to measure a noise floor from.
-  - HNR (harmonics-to-noise ratio, via Parselmouth — the same measure
-    Component 2 already uses as a phonation feature) — used when no real
-    silence is present, which is normal for a tightly-trimmed sustained
-    vowel ("aaaaaa") recording. Verified against synthetic noise injection:
-    clean recordings measure ~11-23dB HNR; injecting the same 10dB SNR noise
-    that the robustness study flags as the accuracy cliff drops HNR to
-    ~9dB — so the same 10dB threshold applies to either estimator.
-
-    (An earlier version of this gate used only the silence-based estimator.
-    It systematically misfired on sustained-vowel recordings — a clip with
-    no real silence has no genuine noise floor to sample, so the "quietest
-    10% of frames" was just quiet vowel energy, not noise, and every clean
-    vowel recording measured under 10dB and failed the gate. HNR needs no
-    silence at all, which is why it's the fallback.)
+The measurements themselves (silence-based SNR, HNR, level, ...) live in
+`quality_metrics.py`; see its docstring for why two estimators are used.
+Verified against synthetic noise injection: clean recordings measure
+~11-23dB HNR; injecting the same 10dB SNR noise that the robustness study
+flags as the accuracy cliff drops HNR to ~9dB — so the same 10dB threshold
+applies to either estimator.
 
 A third, INFORMATIONAL-ONLY check: absolute recording level (mean RMS in
 dBFS), reported but NOT used to gate pass/fail by default. `validate_
@@ -49,24 +36,16 @@ quietly worked around.
 
 from dataclasses import dataclass
 
-import numpy as np
 import librosa
-import parselmouth
 
-from ..common.audio_io import ensure_wav
+from common.audio_io import ensure_wav
+from component1_robustness.quality_metrics import (  # noqa: F401  (re-exported for old callers)
+    estimate_quality_db,
+    mean_level_dbfs,
+)
 
 RELIABLE_DB = 10.0  # from robustness_summary.csv — see module docstring
 MIN_LEVEL_DBFS = -18.0  # from this project's own clean-recording level distribution — see module docstring
-
-FRAME_LENGTH = 2048
-HOP_LENGTH = 512
-NOISE_FLOOR_PERCENTILE = 10
-SIGNAL_PERCENTILE = 90
-SILENCE_TOP_DB = 30
-MIN_SILENCE_FRACTION = 0.05  # need at least 5% of the clip as real silence to trust it
-
-F0_MIN_HZ = 70
-F0_MAX_HZ = 400
 
 
 @dataclass
@@ -76,44 +55,6 @@ class QualityGateResult:
     method: str
     level_dbfs: float
     message: str
-
-
-def _mean_level_dbfs(y):
-    rms = np.sqrt(np.mean(y ** 2) + 1e-12)
-    return float(20 * np.log10(rms + 1e-12))
-
-
-def _has_usable_silence(y, sr):
-    non_silent = librosa.effects.split(y, top_db=SILENCE_TOP_DB)
-    silent_samples = len(y) - sum(end - start for start, end in non_silent)
-    return (silent_samples / len(y)) >= MIN_SILENCE_FRACTION
-
-
-def _silence_based_snr(y):
-    rms = librosa.feature.rms(y=y, frame_length=FRAME_LENGTH, hop_length=HOP_LENGTH)[0]
-    rms = rms[rms > 0]
-    if len(rms) == 0:
-        return -np.inf
-    noise_floor = np.percentile(rms, NOISE_FLOOR_PERCENTILE)
-    signal_level = np.percentile(rms, SIGNAL_PERCENTILE)
-    if noise_floor <= 1e-9:
-        return 60.0
-    return float(20 * np.log10(signal_level / noise_floor))
-
-
-def _hnr(wav_path):
-    sound = parselmouth.Sound(wav_path)
-    harmonicity = sound.to_harmonicity_cc(time_step=0.01, minimum_pitch=F0_MIN_HZ)
-    value = parselmouth.praat.call(harmonicity, "Get mean", 0, 0)
-    return float(value) if not np.isnan(value) else -np.inf
-
-
-def estimate_quality_db(wav_path):
-    """Returns (estimate_db, method) — method is 'silence_snr' or 'hnr'."""
-    y, sr = librosa.load(wav_path, sr=None, mono=True)
-    if _has_usable_silence(y, sr):
-        return _silence_based_snr(y), "silence_snr"
-    return _hnr(wav_path), "hnr"
 
 
 def check_quality(audio_path, reliable_db=RELIABLE_DB, min_level_dbfs=None):
@@ -130,7 +71,7 @@ def check_quality(audio_path, reliable_db=RELIABLE_DB, min_level_dbfs=None):
     y, sr = librosa.load(wav_path, sr=None, mono=True)
 
     estimate_db, method = estimate_quality_db(wav_path)
-    level_dbfs = _mean_level_dbfs(y)
+    level_dbfs = mean_level_dbfs(y)
 
     quality_ok = estimate_db >= reliable_db
     level_ok = min_level_dbfs is None or level_dbfs >= min_level_dbfs
