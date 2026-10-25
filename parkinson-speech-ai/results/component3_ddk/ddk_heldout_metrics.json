@@ -1,0 +1,231 @@
+{
+  "component": "component3_ddk",
+  "dataset_root": "D:\\Projects\\KND_CDAP_SE_01\\parkinson-speech-ai\\data\\Italian Parkinson_s Voice and speech",
+  "participant_id_rule": "PD numbered range plus participant folder; HC group plus participant folder",
+  "identity_review": {
+    "metadata_files_found": [
+      "15 Young Healthy Control\\15 YHC.xlsx",
+      "15 Young Healthy Control\\FILE CODES.xlsx",
+      "22 Elderly Healthy Control\\FILE CODES.xlsx",
+      "22 Elderly Healthy Control\\Tab 3.xlsx",
+      "28 People with Parkinson's disease\\FILE CODES.xlsx",
+      "28 People with Parkinson's disease\\TAB 5.xlsx"
+    ],
+    "authoritative_cross_range_key_verified": false,
+    "unresolved_risk": "Repeated folder names may or may not represent the same person across PD ranges.",
+    "id_rule": "PD numbered range plus participant folder; HC group plus participant folder"
+  },
+  "random_state": 42,
+  "test_size_requested": 0.2,
+  "n_participants_total": 50,
+  "n_participants_train": 40,
+  "n_participants_test": 10,
+  "n_recordings_train": 80,
+  "n_recordings_test": 20,
+  "participant_overlap": [],
+  "training_only_repeated_cv": {
+    "random_forest": {
+      "fold_accuracies": [
+        0.875,
+        0.9375,
+        0.875,
+        0.9375,
+        1.0,
+        0.8125,
+        0.875,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9375,
+        1.0,
+        0.9375,
+        0.9375
+      ],
+      "mean_accuracy": 0.9416666666666667,
+      "std_accuracy": 0.05803495115493384,
+      "repetitions": 3,
+      "folds_per_repetition": 5
+    },
+    "svm_rbf": {
+      "fold_accuracies": [
+        0.875,
+        0.9375,
+        0.9375,
+        1.0,
+        1.0,
+        0.8125,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.875
+      ],
+      "mean_accuracy": 0.9625,
+      "std_accuracy": 0.05951190357119041,
+      "repetitions": 3,
+      "folds_per_repetition": 5
+    },
+    "logistic_regression": {
+      "fold_accuracies": [
+        0.875,
+        0.9375,
+        1.0,
+        1.0,
+        1.0,
+        0.8125,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8125
+      ],
+      "mean_accuracy": 0.9625,
+      "std_accuracy": 0.067700320038633,
+      "repetitions": 3,
+      "folds_per_repetition": 5
+    }
+  },
+  "held_out_recording_metrics": {
+    "evaluation": "held_out_test_recording",
+    "participants": 10,
+    "recordings": 20,
+    "accuracy": 1.0,
+    "precision_PD": 1.0,
+    "sensitivity_recall_PD": 1.0,
+    "specificity_HC": 1.0,
+    "f1_PD": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix_hc_pd": [
+      [
+        8,
+        0
+      ],
+      [
+        0,
+        12
+      ]
+    ],
+    "classification_report": {
+      "HC": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 8.0
+      },
+      "PD": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 12.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 20.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 20.0
+      }
+    }
+  },
+  "held_out_participant_metrics": {
+    "evaluation": "held_out_test_participant",
+    "participants": 10,
+    "recordings": 20,
+    "accuracy": 1.0,
+    "precision_PD": 1.0,
+    "sensitivity_recall_PD": 1.0,
+    "specificity_HC": 1.0,
+    "f1_PD": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix_hc_pd": [
+      [
+        4,
+        0
+      ],
+      [
+        0,
+        6
+      ]
+    ],
+    "missing_task_participants": 0
+  },
+  "task_metrics": [
+    {
+      "task": "D1",
+      "status": "evaluated",
+      "train_recordings": 40,
+      "test_recordings": 10,
+      "test_participants": 10,
+      "accuracy": 1.0,
+      "precision_PD": 1.0,
+      "sensitivity_recall_PD": 1.0,
+      "specificity_HC": 1.0,
+      "f1_PD": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix_hc_pd": [
+        [
+          4,
+          0
+        ],
+        [
+          0,
+          6
+        ]
+      ]
+    },
+    {
+      "task": "D2",
+      "status": "evaluated",
+      "train_recordings": 40,
+      "test_recordings": 10,
+      "test_participants": 10,
+      "accuracy": 1.0,
+      "precision_PD": 1.0,
+      "sensitivity_recall_PD": 1.0,
+      "specificity_HC": 1.0,
+      "f1_PD": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix_hc_pd": [
+        [
+          4,
+          0
+        ],
+        [
+          0,
+          6
+        ]
+      ]
+    }
+  ],
+  "feature_names": [
+    "ddk_rate",
+    "mean_ioi",
+    "std_ioi",
+    "cv_ioi",
+    "num_pauses",
+    "pause_ratio",
+    "mean_spectral_centroid",
+    "std_spectral_centroid",
+    "mean_spectral_bandwidth",
+    "mean_mfcc1",
+    "mean_mfcc2",
+    "mean_mfcc3"
+  ],
+  "personal_recordings_used": false,
+  "duplicate_sha256_rows": 0
+}
