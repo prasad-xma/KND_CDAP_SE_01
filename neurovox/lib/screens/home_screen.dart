@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n/language_controller.dart';
 import '../core/widgets/bottom_nav_bar.dart';
+import '../core/widgets/language_toggle_button.dart';
 import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
@@ -257,66 +259,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _showNotificationsSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.notifications_active_outlined, color: Color(0xFF0C9388)),
-                  SizedBox(width: 10),
-                  Text(
-                    'Notifications',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD6ECE6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.alarm_rounded, color: Color(0xFF0C9388)),
-                ),
-                title: const Text('Daily Assessment Reminder', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Take your 30-second morning vowel stability check.'),
-              ),
-              const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.analytics_outlined, color: Color(0xFF4A4A4A)),
-                ),
-                title: const Text('Weekly Health Digest', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Your voice stability improved by +3.2% this week.'),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const Color bgMint = Color(0xFFD6ECE6);
@@ -329,37 +271,42 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       const ReportsScreen(),
     ];
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: bgMint,
-        body: SafeArea(
-          child: IndexedStack(
-            index: _currentIndex,
-            children: pages,
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
           ),
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12.0, top: 4.0),
-            child: BottomNavBar(
-              currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
-              themeColor: primaryTeal,
-              items: const [
-                NavItem(icon: Icons.home_outlined, label: 'Home'),
-                NavItem(icon: Icons.record_voice_over_outlined, label: 'Phonation'),
-                NavItem(icon: Icons.settings_voice_outlined, label: 'Motor'),
-                NavItem(icon: Icons.analytics_outlined, label: 'Reports'),
-              ],
+          child: Scaffold(
+            backgroundColor: bgMint,
+            body: SafeArea(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: pages,
+              ),
+            ),
+            bottomNavigationBar: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12.0, top: 4.0),
+                child: BottomNavBar(
+                  currentIndex: _currentIndex,
+                  onTap: (index) => setState(() => _currentIndex = index),
+                  themeColor: primaryTeal,
+                  items: [
+                    NavItem(icon: Icons.home_outlined, label: tr('navHome')),
+                    NavItem(icon: Icons.record_voice_over_outlined, label: tr('navPhonation')),
+                    NavItem(icon: Icons.settings_voice_outlined, label: tr('navMotor')),
+                    NavItem(icon: Icons.analytics_outlined, label: tr('navReports')),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -380,96 +327,70 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [primaryTealLight, primaryTeal],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryTeal.withValues(alpha: 0.25),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hello, ${widget.userName} 👋',
-                        style: const TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          color: darkSlate,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Vocal Health Dashboard',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: mediumGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              IconButton(
-                onPressed: _showNotificationsSheet,
-                icon: Stack(
+              Expanded(
+                child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(9),
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: const LinearGradient(
+                          colors: [primaryTealLight, primaryTeal],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: primaryTeal.withValues(alpha: 0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: primaryTeal.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: primaryTeal,
-                        size: 22,
+                      child: const Center(
+                        child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
                       ),
                     ),
-                    Positioned(
-                      right: 3,
-                      top: 3,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${tr('hello')}, ${widget.userName} 👋',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: darkSlate,
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tr('vocalDashboard'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: mediumGrey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              const LanguageToggleButton(),
             ],
           ),
+
+
           const SizedBox(height: 20),
 
           // Hero Health Score Card
