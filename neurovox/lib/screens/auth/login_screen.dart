@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/i18n/language_controller.dart';
+import '../../core/widgets/language_toggle_button.dart';
 import 'register_screen.dart';
 import '../home_screen.dart';
 
@@ -46,40 +48,52 @@ class _LoginScreenState extends State<LoginScreen> {
     const Color darkGrey = Color(0xFF4A4A4A);
     const Color lightGrey = Color(0xFF7A7A7A);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: bgMint,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.8),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryTeal.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          child: Scaffold(
+            backgroundColor: bgMint,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.only(right: 16.0),
+                  child: Center(
+                    child: LanguageToggleButton(),
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 16,
-                color: primaryTeal,
+                ),
+              ],
+              leading: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryTeal.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: primaryTeal,
+                  ),
+                ),
+                onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ),
+
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -108,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Title and Subtitle
-                    const Text(
-                      'Welcome Back!',
+                    Text(
+                      tr('loginTitle'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         color: primaryTeal,
@@ -119,10 +133,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Log in to continue monitoring your voice health',
+                    Text(
+                      tr('loginSubtitle'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         color: lightGrey,
                         fontWeight: FontWeight.w500,
@@ -150,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Username or Email',
+                          hintText: tr('usernameHint'),
                           hintStyle: TextStyle(
                             color: lightGrey.withValues(alpha: 0.7),
                             fontWeight: FontWeight.normal,
@@ -190,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Password',
+                          hintText: tr('passwordHint'),
                           hintStyle: TextStyle(
                             color: lightGrey.withValues(alpha: 0.7),
                             fontWeight: FontWeight.normal,
@@ -245,9 +259,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Remember me',
-                              style: TextStyle(
+                            Text(
+                              tr('rememberMe'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: darkGrey,
                                 fontWeight: FontWeight.w500,
@@ -259,8 +273,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Text(
-                                  'Password reset link will be sent to your email.',
+                                content: Text(
+                                  tr('passwordHint'),
                                 ),
                                 backgroundColor: primaryTeal,
                                 behavior: SnackBarBehavior.floating,
@@ -270,9 +284,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'Forgot Password?',
-                            style: TextStyle(
+                          child: Text(
+                            tr('forgotPassword'),
+                            style: const TextStyle(
                               fontSize: 13,
                               color: primaryTeal,
                               fontWeight: FontWeight.w700,
@@ -297,9 +311,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: const Text(
-                          'Log In',
-                          style: TextStyle(
+                        child: Text(
+                          tr('signInButton'),
+                          style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -313,9 +327,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(
+                        Text(
+                          tr('dontHaveAccount'),
+                          style: const TextStyle(
                             fontSize: 14,
                             color: darkGrey,
                             fontWeight: FontWeight.w500,
@@ -329,9 +343,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'Register',
-                            style: TextStyle(
+                          child: Text(
+                            tr('signUpLink'),
+                            style: const TextStyle(
                               fontSize: 14,
                               color: primaryTeal,
                               fontWeight: FontWeight.w800,
@@ -349,5 +363,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  },
+);
   }
 }
+
