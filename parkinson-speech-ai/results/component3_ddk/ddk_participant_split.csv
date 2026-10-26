@@ -1,51 +1,51 @@
-participant_id,label,label_name,group,split
-ITA_HC_AGNESE P,0,HC,22 Elderly Healthy Control,train
-ITA_HC_ANGELA C,0,HC,22 Elderly Healthy Control,train
-ITA_HC_ANGELA G,0,HC,22 Elderly Healthy Control,train
-ITA_HC_ANTONIETTA P,0,HC,22 Elderly Healthy Control,train
-ITA_HC_ANTONIO C,0,HC,22 Elderly Healthy Control,train
-ITA_HC_BRIGIDA C,0,HC,22 Elderly Healthy Control,train
-ITA_HC_GILDA C,0,HC,22 Elderly Healthy Control,test
-ITA_HC_GIOVANNA G,0,HC,22 Elderly Healthy Control,train
-ITA_HC_GIOVANNI B,0,HC,22 Elderly Healthy Control,train
-ITA_HC_GRAZIA G,0,HC,22 Elderly Healthy Control,train
-ITA_HC_LEONARDA F,0,HC,22 Elderly Healthy Control,test
-ITA_HC_LISCO G,0,HC,22 Elderly Healthy Control,train
-ITA_HC_LUIGI P,0,HC,22 Elderly Healthy Control,train
-ITA_HC_MARIACRISTINA P,0,HC,22 Elderly Healthy Control,train
-ITA_HC_MICHELE G,0,HC,22 Elderly Healthy Control,test
-ITA_HC_NICOLA P,0,HC,22 Elderly Healthy Control,train
-ITA_HC_PORCELLI A,0,HC,22 Elderly Healthy Control,train
-ITA_HC_SUMMO L,0,HC,22 Elderly Healthy Control,train
-ITA_HC_TERESA M,0,HC,22 Elderly Healthy Control,train
-ITA_HC_VITANTONIO D,0,HC,22 Elderly Healthy Control,test
-ITA_HC_VITO A,0,HC,22 Elderly Healthy Control,train
-ITA_HC_VITO L,0,HC,22 Elderly Healthy Control,train
-ITA_PD_1-5_Domenico C,1,PD,28 People with Parkinson's disease,test
-ITA_PD_1-5_Felicetta C,1,PD,28 People with Parkinson's disease,test
-ITA_PD_1-5_Leonarda L,1,PD,28 People with Parkinson's disease,train
-ITA_PD_1-5_Lucia R,1,PD,28 People with Parkinson's disease,train
-ITA_PD_1-5_Roberto R,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Anna B,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Michele C,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Nicola S,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Roberto L,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Roberto R,1,PD,28 People with Parkinson's disease,train
-ITA_PD_11-16_Vito S,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Antonia G,1,PD,28 People with Parkinson's disease,test
-ITA_PD_17-28_Daria L,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Giovanni M,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Giovanni N,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Giulia L,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Giulia P,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Giustina M,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Mario B,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Nicola M,1,PD,28 People with Parkinson's disease,train
-ITA_PD_17-28_Nicolò C,1,PD,28 People with Parkinson's disease,test
-ITA_PD_17-28_Vito L,1,PD,28 People with Parkinson's disease,test
-ITA_PD_17-28_Vito S,1,PD,28 People with Parkinson's disease,train
-ITA_PD_6-10_Luigi B,1,PD,28 People with Parkinson's disease,train
-ITA_PD_6-10_Nicola S,1,PD,28 People with Parkinson's disease,test
-ITA_PD_6-10_Saverio S,1,PD,28 People with Parkinson's disease,train
-ITA_PD_6-10_Ugo B,1,PD,28 People with Parkinson's disease,train
-ITA_PD_6-10_Vito S,1,PD,28 People with Parkinson's disease,train
+participant_id,label,label_name,group,conservative_group_id,split
+ITA_HC_AGNESE P,0,HC,22 Elderly Healthy Control,ITA_HC_AGNESE P,train
+ITA_HC_ANGELA C,0,HC,22 Elderly Healthy Control,ITA_HC_ANGELA C,train
+ITA_HC_ANGELA G,0,HC,22 Elderly Healthy Control,ITA_HC_ANGELA G,train
+ITA_HC_ANTONIETTA P,0,HC,22 Elderly Healthy Control,ITA_HC_ANTONIETTA P,train
+ITA_HC_ANTONIO C,0,HC,22 Elderly Healthy Control,ITA_HC_ANTONIO C,train
+ITA_HC_BRIGIDA C,0,HC,22 Elderly Healthy Control,ITA_HC_BRIGIDA C,train
+ITA_HC_GILDA C,0,HC,22 Elderly Healthy Control,ITA_HC_GILDA C,test
+ITA_HC_GIOVANNA G,0,HC,22 Elderly Healthy Control,ITA_HC_GIOVANNA G,test
+ITA_HC_GIOVANNI B,0,HC,22 Elderly Healthy Control,ITA_HC_GIOVANNI B,train
+ITA_HC_GRAZIA G,0,HC,22 Elderly Healthy Control,ITA_HC_GRAZIA G,train
+ITA_HC_LEONARDA F,0,HC,22 Elderly Healthy Control,ITA_HC_LEONARDA F,test
+ITA_HC_LISCO G,0,HC,22 Elderly Healthy Control,ITA_HC_LISCO G,train
+ITA_HC_LUIGI P,0,HC,22 Elderly Healthy Control,ITA_HC_LUIGI P,train
+ITA_HC_MARIACRISTINA P,0,HC,22 Elderly Healthy Control,ITA_HC_MARIACRISTINA P,train
+ITA_HC_MICHELE G,0,HC,22 Elderly Healthy Control,ITA_HC_MICHELE G,test
+ITA_HC_NICOLA P,0,HC,22 Elderly Healthy Control,ITA_HC_NICOLA P,train
+ITA_HC_PORCELLI A,0,HC,22 Elderly Healthy Control,ITA_HC_PORCELLI A,train
+ITA_HC_SUMMO L,0,HC,22 Elderly Healthy Control,ITA_HC_SUMMO L,train
+ITA_HC_TERESA M,0,HC,22 Elderly Healthy Control,ITA_HC_TERESA M,train
+ITA_HC_VITANTONIO D,0,HC,22 Elderly Healthy Control,ITA_HC_VITANTONIO D,test
+ITA_HC_VITO A,0,HC,22 Elderly Healthy Control,ITA_HC_VITO A,train
+ITA_HC_VITO L,0,HC,22 Elderly Healthy Control,ITA_HC_VITO L,train
+ITA_PD_1-5_Domenico C,1,PD,28 People with Parkinson's disease,ITA_PD_1-5_Domenico C,test
+ITA_PD_1-5_Felicetta C,1,PD,28 People with Parkinson's disease,ITA_PD_1-5_Felicetta C,test
+ITA_PD_1-5_Leonarda L,1,PD,28 People with Parkinson's disease,ITA_PD_1-5_Leonarda L,train
+ITA_PD_1-5_Lucia R,1,PD,28 People with Parkinson's disease,ITA_PD_1-5_Lucia R,train
+ITA_PD_1-5_Roberto R,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Roberto R,test
+ITA_PD_11-16_Anna B,1,PD,28 People with Parkinson's disease,ITA_PD_11-16_Anna B,train
+ITA_PD_11-16_Michele C,1,PD,28 People with Parkinson's disease,ITA_PD_11-16_Michele C,train
+ITA_PD_11-16_Nicola S,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Nicola S,train
+ITA_PD_11-16_Roberto L,1,PD,28 People with Parkinson's disease,ITA_PD_11-16_Roberto L,train
+ITA_PD_11-16_Roberto R,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Roberto R,test
+ITA_PD_11-16_Vito S,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Vito S,train
+ITA_PD_17-28_Antonia G,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Antonia G,train
+ITA_PD_17-28_Daria L,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Daria L,train
+ITA_PD_17-28_Giovanni M,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Giovanni M,train
+ITA_PD_17-28_Giovanni N,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Giovanni N,train
+ITA_PD_17-28_Giulia L,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Giulia L,test
+ITA_PD_17-28_Giulia P,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Giulia P,train
+ITA_PD_17-28_Giustina M,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Giustina M,train
+ITA_PD_17-28_Mario B,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Mario B,train
+ITA_PD_17-28_Nicola M,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Nicola M,train
+ITA_PD_17-28_Nicolò C,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Nicolò C,train
+ITA_PD_17-28_Vito L,1,PD,28 People with Parkinson's disease,ITA_PD_17-28_Vito L,train
+ITA_PD_17-28_Vito S,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Vito S,train
+ITA_PD_6-10_Luigi B,1,PD,28 People with Parkinson's disease,ITA_PD_6-10_Luigi B,train
+ITA_PD_6-10_Nicola S,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Nicola S,train
+ITA_PD_6-10_Saverio S,1,PD,28 People with Parkinson's disease,ITA_PD_6-10_Saverio S,train
+ITA_PD_6-10_Ugo B,1,PD,28 People with Parkinson's disease,ITA_PD_6-10_Ugo B,test
+ITA_PD_6-10_Vito S,1,PD,28 People with Parkinson's disease,ITA_PD_POSSIBLE_DUPLICATE_Vito S,train
