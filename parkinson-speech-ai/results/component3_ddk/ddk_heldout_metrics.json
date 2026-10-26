@@ -11,8 +11,9 @@
       "28 People with Parkinson's disease\\FILE CODES.xlsx",
       "28 People with Parkinson's disease\\TAB 5.xlsx"
     ],
+    "metadata_contents_inspected_for_identity": false,
     "authoritative_cross_range_key_verified": false,
-    "unresolved_risk": "Repeated folder names may or may not represent the same person across PD ranges.",
+    "unresolved_risk": "Spreadsheet inventory alone does not establish whether repeated folder names identify the same person across PD ranges.",
     "id_rule": "PD numbered range plus participant folder; HC group plus participant folder"
   },
   "random_state": 42,
@@ -45,7 +46,8 @@
       "mean_accuracy": 0.9416666666666667,
       "std_accuracy": 0.05803495115493384,
       "repetitions": 3,
-      "folds_per_repetition": 5
+      "folds_per_repetition": 5,
+      "fold_validation_checked": true
     },
     "svm_rbf": {
       "fold_accuracies": [
@@ -68,7 +70,8 @@
       "mean_accuracy": 0.9625,
       "std_accuracy": 0.05951190357119041,
       "repetitions": 3,
-      "folds_per_repetition": 5
+      "folds_per_repetition": 5,
+      "fold_validation_checked": true
     },
     "logistic_regression": {
       "fold_accuracies": [
@@ -91,7 +94,8 @@
       "mean_accuracy": 0.9625,
       "std_accuracy": 0.067700320038633,
       "repetitions": 3,
-      "folds_per_repetition": 5
+      "folds_per_repetition": 5,
+      "fold_validation_checked": true
     }
   },
   "held_out_recording_metrics": {
