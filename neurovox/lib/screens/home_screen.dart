@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/i18n/language_controller.dart';
@@ -7,6 +6,15 @@ import '../core/widgets/language_toggle_button.dart';
 import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
+
+const Color _bg = Color(0xFF0A0E14);
+const Color _surfaceRaised = Color(0xFF1A2330);
+const Color _stroke = Color(0xFF232E3D);
+const Color _accent = Color(0xFF22E6C9);
+const Color _accentDim = Color(0xFF0C9388);
+const Color _textPrimary = Color(0xFFEFF4F8);
+const Color _textSecondary = Color(0xFF8C9AAE);
+const Color _textFaint = Color(0xFF5B6778);
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -22,248 +30,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
-  bool _isRecordingSimulated = false;
-  late final AnimationController _pulseController;
 
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  void _showRecordVoiceModal() {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color primaryTealLight = Color(0xFF0EC4B7);
-    const Color darkGrey = Color(0xFF2D3748);
-    const Color lightGrey = Color(0xFF718096);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.72,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Vocal Biomarker Check',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: darkGrey,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(modalContext),
-                        icon: const Icon(Icons.close_rounded, color: lightGrey),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Please pronounce a steady sustained vowel /a/ into the microphone for 5 seconds.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: lightGrey,
-                      height: 1.4,
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    height: 100,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: List.generate(24, (index) {
-                        final double barHeight = _isRecordingSimulated
-                            ? 15.0 + 65.0 * math.sin((index * 0.3) + (_pulseController.value * math.pi * 2)).abs()
-                            : 8.0 + (index % 4) * 4.0;
-
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                          width: 4,
-                          height: barHeight,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [primaryTealLight, primaryTeal],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _isRecordingSimulated ? 'Listening & Analyzing Frequency...' : 'Ready to record',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: _isRecordingSimulated ? primaryTeal : lightGrey,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      setModalState(() {
-                        _isRecordingSimulated = !_isRecordingSimulated;
-                      });
-                      setState(() {});
-
-                      if (_isRecordingSimulated) {
-                        Future.delayed(const Duration(seconds: 4), () {
-                          if (modalContext.mounted) {
-                            Navigator.pop(modalContext);
-                            _showSuccessAssessmentDialog();
-                          }
-                          setState(() {
-                            _isRecordingSimulated = false;
-                          });
-                        });
-                      }
-                    },
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: _isRecordingSimulated
-                              ? [Colors.redAccent, Colors.red]
-                              : [primaryTealLight, primaryTeal],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_isRecordingSimulated ? Colors.red : primaryTeal)
-                                .withValues(alpha: 0.4),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        _isRecordingSimulated ? Icons.stop_rounded : Icons.mic_rounded,
-                        color: Colors.white,
-                        size: 38,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _isRecordingSimulated ? 'Tap to cancel' : 'Tap mic to start test',
-                    style: const TextStyle(fontSize: 13, color: lightGrey),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showSuccessAssessmentDialog() {
-    const Color primaryTeal = Color(0xFF0C9388);
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: Colors.white,
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: primaryTeal, size: 28),
-              SizedBox(width: 10),
-              Text(
-                'Analysis Complete',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Your vocal biomarkers have been processed successfully.',
-                style: TextStyle(color: Color(0xFF4A4A4A), fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD6ECE6).withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Voice Stability Score:',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2D3748)),
-                    ),
-                    Text(
-                      '96% (Optimal)',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: primaryTeal),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(
-                'View Detailed Report',
-                style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  void _goToPhonationTab() => setState(() => _currentIndex = 1);
 
   @override
   Widget build(BuildContext context) {
-    const Color bgMint = Color(0xFFD6ECE6);
-    const Color primaryTeal = Color(0xFF0C9388);
-
     final List<Widget> pages = [
       _buildHomeDashboardTab(),
       const PhonationTestScreen(),
@@ -277,11 +48,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
           child: Scaffold(
-            backgroundColor: bgMint,
+            backgroundColor: _bg,
             body: SafeArea(
               child: IndexedStack(
                 index: _currentIndex,
@@ -294,7 +65,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 child: BottomNavBar(
                   currentIndex: _currentIndex,
                   onTap: (index) => setState(() => _currentIndex = index),
-                  themeColor: primaryTeal,
+                  themeColor: _accent,
+                  itemColor: _surfaceRaised,
+                  activeTextColor: _accent,
+                  inactiveIconColor: _textSecondary,
                   items: [
                     NavItem(icon: Icons.home_outlined, label: tr('navHome')),
                     NavItem(icon: Icons.record_voice_over_outlined, label: tr('navPhonation')),
@@ -310,20 +84,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // ================= TAB 0: HOME DASHBOARD =================
   Widget _buildHomeDashboardTab() {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color primaryTealLight = Color(0xFF0EC4B7);
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Header Bar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -335,21 +102,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       height: 46,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [primaryTealLight, primaryTeal],
+                          colors: [_accent, _accentDim],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: primaryTeal.withValues(alpha: 0.25),
+                            color: _accent.withValues(alpha: 0.25),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: const Center(
-                        child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
+                        child: Icon(Icons.person_rounded, color: Color(0xFF071210), size: 26),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -362,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: darkSlate,
+                              color: _textPrimary,
                               letterSpacing: -0.3,
                             ),
                             maxLines: 1,
@@ -374,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: mediumGrey,
+                              color: _textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -386,27 +153,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ),
               const SizedBox(width: 12),
-              const LanguageToggleButton(),
+              const LanguageToggleButton(
+                activeColor: _accent,
+                inactiveColor: _textSecondary,
+                backgroundColor: _surfaceRaised,
+              ),
             ],
           ),
 
-
           const SizedBox(height: 20),
 
-          // Hero Health Score Card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0F9B90), Color(0xFF08756C)],
+                colors: [_accent, _accentDim],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: primaryTeal.withValues(alpha: 0.35),
+                  color: _accent.withValues(alpha: 0.25),
                   blurRadius: 22,
                   offset: const Offset(0, 10),
                 ),
@@ -415,126 +184,49 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.shield_outlined, color: Colors.white, size: 14),
-                          SizedBox(width: 5),
-                          Text(
-                            'Baseline Normal',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.local_fire_department_rounded, color: Colors.amberAccent, size: 15),
-                          SizedBox(width: 4),
-                          Text(
-                            '7-Day Streak',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                    Icon(Icons.graphic_eq_rounded, color: Color(0xFF071210), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Phonation Screening',
+                      style: TextStyle(
+                        color: Color(0xFF071210),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Voice Stability',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '94',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 42,
-                                fontWeight: FontWeight.w900,
-                                height: 1.0,
-                              ),
-                            ),
-                            Text(
-                              '%',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _showRecordVoiceModal,
-                      icon: const Icon(Icons.mic_none_rounded, color: primaryTeal, size: 20),
-                      label: const Text(
-                        'Quick Test',
-                        style: TextStyle(
-                          color: primaryTeal,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: primaryTeal,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 10),
+                const Text(
+                  'Run a sustained-vowel voice test to check your acoustic biomarkers.',
+                  style: TextStyle(
+                    color: Color(0xCC071210),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: 0.94,
-                    minHeight: 6,
-                    backgroundColor: Colors.white.withValues(alpha: 0.25),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: _goToPhonationTab,
+                  icon: const Icon(Icons.mic_none_rounded, color: _accentDim, size: 20),
+                  label: const Text(
+                    'Start Test',
+                    style: TextStyle(
+                      color: _accentDim,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF071210),
+                    foregroundColor: _accentDim,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ],
@@ -542,13 +234,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 26),
 
-          // Assessment Modules Section
           const Text(
             'Assessment Modules',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: darkSlate,
+              color: _textPrimary,
               letterSpacing: -0.3,
             ),
           ),
@@ -566,39 +257,34 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 icon: Icons.graphic_eq_rounded,
                 title: 'Phonation Test',
                 subtitle: 'Pitch & Jitter check',
-                badgeColor: const Color(0xFFE6F8F5),
-                iconColor: primaryTeal,
+                iconColor: _accent,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
               _buildActionCard(
                 icon: Icons.record_voice_over_rounded,
                 title: 'Speech-Motor',
                 subtitle: 'Passage reading task',
-                badgeColor: const Color(0xFFEFF6FF),
-                iconColor: const Color(0xFF2563EB),
+                iconColor: const Color(0xFF5B9BFF),
                 onTap: () => setState(() => _currentIndex = 2),
               ),
               _buildActionCard(
                 icon: Icons.analytics_outlined,
                 title: 'Risk Reports',
                 subtitle: 'Fusion diagnostics',
-                badgeColor: const Color(0xFFFAF5FF),
-                iconColor: const Color(0xFF9333EA),
+                iconColor: const Color(0xFFBB86FC),
                 onTap: () => setState(() => _currentIndex = 3),
               ),
               _buildActionCard(
                 icon: Icons.mic_external_on_outlined,
                 title: 'Live Mic Test',
                 subtitle: 'Real-time assessment',
-                badgeColor: const Color(0xFFFFF7ED),
-                iconColor: const Color(0xFFEA580C),
-                onTap: _showRecordVoiceModal,
+                iconColor: const Color(0xFFFFB24B),
+                onTap: _goToPhonationTab,
               ),
             ],
           ),
           const SizedBox(height: 26),
 
-          // Recent Assessments Timeline
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -607,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: darkSlate,
+                  color: _textPrimary,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -616,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 child: const Text(
                   'See All',
                   style: TextStyle(
-                    color: primaryTeal,
+                    color: _accent,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -626,25 +312,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 8),
 
-          _buildRecentTestItem(
-            title: 'Sustained Vowel /a/ Test',
-            time: 'Today • 10:30 AM',
-            stability: '96% Score',
-            isOptimal: true,
-          ),
-          const SizedBox(height: 10),
-          _buildRecentTestItem(
-            title: 'Cognitive Sentence Reading',
-            time: 'Yesterday • 04:15 PM',
-            stability: '93% Score',
-            isOptimal: true,
-          ),
-          const SizedBox(height: 10),
-          _buildRecentTestItem(
-            title: 'Phonation Frequency Sweep',
-            time: 'Aug 30 • 09:00 AM',
-            stability: '88% Score',
-            isOptimal: false,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: _surfaceRaised,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _stroke),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.history_rounded, color: _textFaint, size: 26),
+                const SizedBox(height: 10),
+                const Text(
+                  'No assessments yet',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: _textPrimary, fontSize: 13.5),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Run a phonation test to see results here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: _textSecondary),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
         ],
@@ -652,18 +343,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-
-
   Widget _buildActionCard({
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color badgeColor,
     required Color iconColor,
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: _surfaceRaised,
       borderRadius: BorderRadius.circular(20),
       elevation: 0,
       child: InkWell(
@@ -673,13 +361,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0C9388).withValues(alpha: 0.06),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: _stroke),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: badgeColor,
+                  color: iconColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: iconColor, size: 22),
@@ -699,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
+                  color: _textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
@@ -707,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 subtitle,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF64748B),
+                  color: _textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
@@ -716,85 +398,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildRecentTestItem({
-    required String title,
-    required String time,
-    required String stability,
-    required bool isOptimal,
-  }) {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: primaryTeal.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD6ECE6),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.graphic_eq_rounded, color: primaryTeal, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: darkSlate,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: mediumGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isOptimal
-                  ? const Color(0xFFE6F8F5)
-                  : const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              stability,
-              style: TextStyle(
-                color: isOptimal ? primaryTeal : const Color(0xFFD97706),
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
