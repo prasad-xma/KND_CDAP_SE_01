@@ -47,14 +47,14 @@ class PhonationDualResult {
   final double probabilityPd;
   final double probabilityHc;
   final PhonationResult vowelTask;
-  final PhonationResult phraseTask;
+  final PhonationResult? phraseTask;
 
   const PhonationDualResult({
     required this.prediction,
     required this.probabilityPd,
     required this.probabilityHc,
     required this.vowelTask,
-    required this.phraseTask,
+    this.phraseTask,
   });
 
   factory PhonationDualResult.fromJson(Map<String, dynamic> json) {
@@ -63,7 +63,18 @@ class PhonationDualResult {
       probabilityPd: (json['probability_pd'] as num).toDouble(),
       probabilityHc: (json['probability_hc'] as num).toDouble(),
       vowelTask: PhonationResult.fromJson(json['vowel_task'] as Map<String, dynamic>),
-      phraseTask: PhonationResult.fromJson(json['phrase_task'] as Map<String, dynamic>),
+      phraseTask: json['phrase_task'] != null
+          ? PhonationResult.fromJson(json['phrase_task'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
+  factory PhonationDualResult.vowelOnly(PhonationResult vowelTask) {
+    return PhonationDualResult(
+      prediction: vowelTask.prediction,
+      probabilityPd: vowelTask.probabilityPd,
+      probabilityHc: vowelTask.probabilityHc,
+      vowelTask: vowelTask,
     );
   }
 

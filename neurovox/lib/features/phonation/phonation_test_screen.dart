@@ -81,6 +81,8 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
   static const bool _showAdvancedToggles = false;
 
+  static const bool _includePhraseTask = false;
+
   bool _showMoreVowelParams = false;
   bool _showMorePhraseParams = false;
 
@@ -156,6 +158,52 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
     if (path == null) {
       setState(() => _recordError = _s('recordingFailed'));
+      return;
+    }
+
+    if (_currentStep == 1 && !_includePhraseTask) {
+      setState(() => _isProcessing = true);
+      try {
+        final PhonationResult vowelResult;
+        if (kIsWeb) {
+          final blobResponse = await http.get(Uri.parse(path));
+          final bytes = blobResponse.bodyBytes;
+          if (bytes.length < 1000) {
+            throw Exception(
+              'Recording looks too short/empty (${bytes.length} bytes) - the mic may not '
+              'have actually captured audio. Try recording again, speaking clearly for the '
+              'full duration.',
+            );
+          }
+          vowelResult = await PhonationApiService.screenVowelRecordingBytes(
+            bytes,
+            extractVowelSegment: true,
+          );
+        } else {
+          vowelResult = await PhonationApiService.screenVowelRecording(
+            path,
+            extractVowelSegment: true,
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _lastResult = PhonationDualResult.vowelOnly(vowelResult);
+        });
+        if (modalContext.mounted) Navigator.pop(modalContext);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _recordError = e.toString();
+        });
+      } finally {
+        if (!kIsWeb) {
+          final f = File(path);
+          if (await f.exists()) await f.delete();
+        }
+        await _resetStepState();
+      }
       return;
     }
 
@@ -267,22 +315,25 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: _accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isStep1 ? _s('step1Badge') : _s('step2Badge'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: _accent,
-                            letterSpacing: 0.4,
+                      if (_includePhraseTask)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                      ),
+                          child: Text(
+                            isStep1 ? _s('step1Badge') : _s('step2Badge'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: _accent,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
                       IconButton(
                         onPressed: () async {
                           await _resetStepState();
@@ -512,19 +563,21 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            _s('resultIntroDual'),
+            result.phraseTask != null ? _s('resultIntroDual') : _s('resultIntro'),
             textAlign: TextAlign.center,
             style: const TextStyle(color: _textSecondary, fontSize: 12, height: 1.4),
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            _subScoreBadge(label: _s('vowelTaskLabel'), result: result.vowelTask),
-            const SizedBox(width: 10),
-            _subScoreBadge(label: _s('phraseTaskLabel'), result: result.phraseTask),
-          ],
-        ),
+        if (result.phraseTask != null) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _subScoreBadge(label: _s('vowelTaskLabel'), result: result.vowelTask),
+              const SizedBox(width: 10),
+              _subScoreBadge(label: _s('phraseTaskLabel'), result: result.phraseTask!),
+            ],
+          ),
+        ],
         const SizedBox(height: 10),
         Text(
           _s('disclaimer'),
@@ -926,7 +979,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _s('taskTitle'),
+                            _includePhraseTask ? _s('taskTitle') : _s('step1Title'),
                             textAlign: TextAlign.center,
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _textPrimary),
                           ),
@@ -934,7 +987,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              _s('taskDesc'),
+                              _includePhraseTask ? _s('taskDesc') : _s('step1Instruction'),
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12.5, color: _textSecondary, height: 1.5),
                             ),
@@ -979,13 +1032,15 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                   showMore: _showMoreVowelParams,
                   onToggleShowMore: () => setState(() => _showMoreVowelParams = !_showMoreVowelParams),
                 ),
-                const SizedBox(height: 28),
-                _buildTaskDetailSection(
-                  taskLabel: _s('phraseTaskLabel'),
-                  result: _lastResult!.phraseTask,
-                  showMore: _showMorePhraseParams,
-                  onToggleShowMore: () => setState(() => _showMorePhraseParams = !_showMorePhraseParams),
-                ),
+                if (_lastResult!.phraseTask != null) ...[
+                  const SizedBox(height: 28),
+                  _buildTaskDetailSection(
+                    taskLabel: _s('phraseTaskLabel'),
+                    result: _lastResult!.phraseTask!,
+                    showMore: _showMorePhraseParams,
+                    onToggleShowMore: () => setState(() => _showMorePhraseParams = !_showMorePhraseParams),
+                  ),
+                ],
               ],
             ],
           ),
