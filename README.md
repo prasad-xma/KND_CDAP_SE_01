@@ -1,8 +1,5 @@
 # KND_CDAP_SE_01
 
-# KND_CDAP_SE_01
-
-Testing with google collab
 
 Final year research project: **language-independent voice screening for
 Parkinson's disease** — a smartphone-based triage tool for Sri Lankan primary
