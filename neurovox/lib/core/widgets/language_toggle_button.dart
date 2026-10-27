@@ -18,11 +18,34 @@ class LanguageToggleButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: LanguageController.instance,
       builder: (context, _) {
-        final bool isEnglish = LanguageController.instance.isEnglish;
+        final AppLanguage current = LanguageController.instance.language;
         const Color defaultTeal = Color(0xFF0C9388);
         final Color activeBg = activeColor ?? defaultTeal;
         final Color inactiveText = inactiveColor ?? const Color(0xFF718096);
         final Color bg = backgroundColor ?? Colors.white.withValues(alpha: 0.9);
+
+        Widget pill(String label, AppLanguage lang) {
+          final bool selected = current == lang;
+          return GestureDetector(
+            onTap: () => LanguageController.instance.setAppLanguage(lang),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: selected ? activeBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? Colors.white : inactiveText,
+                ),
+              ),
+            ),
+          );
+        }
 
         return Container(
           height: 38,
@@ -42,47 +65,11 @@ class LanguageToggleButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // English Pill
-              GestureDetector(
-                onTap: () => LanguageController.instance.setLanguage(isEnglish: true),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isEnglish ? activeBg : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'EN',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: isEnglish ? Colors.white : inactiveText,
-                    ),
-                  ),
-                ),
-              ),
+              pill('EN', AppLanguage.english),
               const SizedBox(width: 2),
-              // Sinhala Pill
-              GestureDetector(
-                onTap: () => LanguageController.instance.setLanguage(isEnglish: false),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: !isEnglish ? activeBg : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'සිං',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: !isEnglish ? Colors.white : inactiveText,
-                    ),
-                  ),
-                ),
-              ),
+              pill('සිං', AppLanguage.sinhala),
+              const SizedBox(width: 2),
+              pill('த', AppLanguage.tamil),
             ],
           ),
         );

@@ -1,32 +1,43 @@
 import 'package:flutter/material.dart';
 import 'en_en.dart';
 import 'sl_sl.dart';
+import 'ta_ta.dart';
+
+enum AppLanguage { english, sinhala, tamil }
 
 class LanguageController extends ChangeNotifier {
   LanguageController._internal();
   static final LanguageController instance = LanguageController._internal();
 
-  bool _isEnglish = true;
+  AppLanguage _language = AppLanguage.english;
 
-  bool get isEnglish => _isEnglish;
+  AppLanguage get language => _language;
 
-  void setLanguage({required bool isEnglish}) {
-    if (_isEnglish != isEnglish) {
-      _isEnglish = isEnglish;
+  bool get isEnglish => _language == AppLanguage.english;
+
+  void setAppLanguage(AppLanguage language) {
+    if (_language != language) {
+      _language = language;
       notifyListeners();
     }
   }
 
+  void setLanguage({required bool isEnglish}) {
+    setAppLanguage(isEnglish ? AppLanguage.english : AppLanguage.sinhala);
+  }
+
   void toggleLanguage() {
-    _isEnglish = !_isEnglish;
-    notifyListeners();
+    setAppLanguage(_language == AppLanguage.english ? AppLanguage.sinhala : AppLanguage.english);
   }
 
   String text(String key) {
-    if (_isEnglish) {
-      return enEnStrings[key] ?? key;
-    } else {
-      return slSlStrings[key] ?? enEnStrings[key] ?? key;
+    switch (_language) {
+      case AppLanguage.sinhala:
+        return slSlStrings[key] ?? enEnStrings[key] ?? key;
+      case AppLanguage.tamil:
+        return taTaStrings[key] ?? enEnStrings[key] ?? key;
+      case AppLanguage.english:
+        return enEnStrings[key] ?? key;
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n/language_controller.dart';
 import 'get_started_screen.dart';
 
 /// Clean, modern UI mockup of a splash screen for the medical mobile app "NeuroVox".
@@ -71,7 +72,9 @@ class _SplashScreenState extends State<SplashScreen>
     const Color primaryTealLight = Color(0xFF0EC4B7);
     const Color darkGrey = Color(0xFF666666);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) => AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
@@ -247,10 +250,10 @@ class _SplashScreenState extends State<SplashScreen>
                                     );
                                   }
                                 },
-                                child: const Center(
+                                child: Center(
                                   child: Text(
-                                    'Get Started',
-                                    style: TextStyle(
+                                    tr('getStartedButton'),
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 17,
                                       fontWeight: FontWeight.w700,
@@ -265,7 +268,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                           // Subtle iOS Home Indicator spacing / footer caption
                           Text(
-                            'Clinical Grade Vocal Analysis',
+                            tr('clinicalGradeTagline'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -282,6 +285,7 @@ class _SplashScreenState extends State<SplashScreen>
             },
           ),
         ),
+      ),
       ),
     );
   }

@@ -80,3 +80,48 @@ class PhonationDualResult {
 
   bool get isPd => prediction == 'PD';
 }
+
+class PhonationMultiResult {
+  final String prediction;
+  final double probabilityPd;
+  final double probabilityHc;
+  final List<PhonationResult> recordings;
+
+  const PhonationMultiResult({
+    required this.prediction,
+    required this.probabilityPd,
+    required this.probabilityHc,
+    required this.recordings,
+  });
+
+  factory PhonationMultiResult.fromJson(Map<String, dynamic> json) {
+    return PhonationMultiResult(
+      prediction: json['prediction'] as String,
+      probabilityPd: (json['probability_pd'] as num).toDouble(),
+      probabilityHc: (json['probability_hc'] as num).toDouble(),
+      recordings: (json['recordings'] as List)
+          .map((r) => PhonationResult.fromJson(r as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  bool get isPd => prediction == 'PD';
+
+  PhonationResult toAveragedResult() {
+    final Map<String, double> avgFeatures = {};
+    if (recordings.isNotEmpty) {
+      for (final key in recordings.first.features.keys) {
+        final sum = recordings.fold<double>(0, (acc, r) => acc + (r.features[key] ?? 0));
+        avgFeatures[key] = sum / recordings.length;
+      }
+    }
+    return PhonationResult(
+      prediction: prediction,
+      probabilityPd: probabilityPd,
+      probabilityHc: probabilityHc,
+      features: avgFeatures,
+      extractionUsed: true,
+      modelUsed: recordings.isNotEmpty ? recordings.first.modelUsed : 'vowel_combined_tuned',
+    );
+  }
+}
