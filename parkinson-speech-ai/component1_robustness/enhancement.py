@@ -1,41 +1,72 @@
 """Real audio enhancement/cleanup — the piece the proposal calls "Stage 4:
-Enhancement / Cleanup Algorithms" (slide 17) that wasn't implemented yet.
+Enhancement / Cleanup Algorithms" (slide 17).
 
-Uses spectral-gating noise reduction (the `noisereduce` library): estimate a
-noise profile from the recording itself and subtract it in the frequency
-domain. This is a standard, well-established DSP technique (not a trained
-model), so it needs no training data and works on any recording out of the
-box — appropriate for a phase-1 quality-gate step.
+enhance(y, sr, method, seed, noise_ref=None) works on in-memory arrays. Methods:
+  - "noisereduce_nonstationary": spectral gating that adapts to noise that
+    changes over the recording (phone background noise is rarely constant).
+  - "noisereduce_stationary": spectral gating with one fixed noise profile,
+    taken from `noise_ref` (a noise-only stretch of audio) when given.
+  - "wiener": classic Wiener filter (scipy.signal.wiener) in the time domain.
+  - "none": no enhancement; returns an unchanged copy (the baseline).
+
+All four methods are deterministic: the same input always gives the same
+output. `seed` is part of the signature so every method — including future
+stochastic ones (e.g. a deep model) — is called the same way; the
+current four do not use it.
+
+Every method returns an array the same length as its input.
+
+KNOWN LIMITATION (measured in tests/test_enhancement.py): without a noise
+reference, noisereduce estimates the noise from the recording itself. A
+sustained vowel is steady, so its harmonics are taken for noise and gated
+out: on a 5 dB noisy synthetic vowel both modes keep only ~4-7% of the
+vowel's level and LOWER the SNR. Given a noise-only sample, the stationary
+mode works (SI-SDR 5 -> 14 dB). The non-stationary mode ignores `noise_ref`
+by design (it gates anything steady for ~2 s), so it stays unsuitable for
+sustained vowels. This is the likely cause of Known Problem 5 (enhancement
+lowering Component 2 prediction agreement).
 
 This does NOT replace `degradation.py` (which synthetically damages clean
 audio to study robustness) — this module does the opposite: it tries to
 undo real-world damage on an incoming recording before Component 2/3 see it.
 """
 
-import numpy as np
 import noisereduce as nr
-import soundfile as sf
+import numpy as np
+from scipy.signal import wiener
 
-from ..common.audio_io import ensure_wav
+METHODS = ("noisereduce_nonstationary", "noisereduce_stationary", "wiener", "none")
+WIENER_WINDOW = 3  # samples; scipy's default local window size
 
 
-def enhance_audio(audio_path, output_path=None, stationary=False):
-    """Denoise a recording via spectral gating.
+def _match_length(out: np.ndarray, n: int) -> np.ndarray:
+    """Trim or zero-pad out to exactly n samples."""
+    if len(out) >= n:
+        return out[:n]
+    return np.pad(out, (0, n - len(out)))
 
-    `stationary=False` (default) adapts to noise that changes over the
-    recording — a reasonable default for phone recordings where background
-    noise level isn't constant. Returns (denoised_signal, sample_rate), and
-    also writes to `output_path` if given.
+
+def enhance(y: np.ndarray, sr: int, method: str, seed: int,
+            noise_ref: np.ndarray | None = None) -> np.ndarray:
+    """Enhance a mono signal with the chosen method. Output length == input length.
+
+    seed: accepted for a uniform interface; the current methods are deterministic.
+    noise_ref: optional noise-only audio (same sr). Used by "noisereduce_stationary"
+    as its noise profile; the other methods ignore it.
     """
-    audio_path = ensure_wav(audio_path)
-    y, sr = sf.read(audio_path, always_2d=False)
-    if y.ndim > 1:
-        y = y.mean(axis=1)
-    y = y.astype(np.float32)
+    if method not in METHODS:
+        raise ValueError(f"Unknown enhancement method {method!r}; choose from {METHODS}")
+    y = np.asarray(y)
+    if method == "none":
+        return y.copy()
+    if method == "wiener":
+        out = wiener(y, mysize=WIENER_WINDOW)
+    else:
+        stationary = method == "noisereduce_stationary"
+        y_noise = noise_ref if stationary else None   # non-stationary mode cannot use it
+        out = nr.reduce_noise(y=y, sr=sr, stationary=stationary, y_noise=y_noise)
+    # Digital silence gives 0/0 inside both scipy's Wiener filter and
+    # noisereduce's non-stationary gate; replace those NaNs with 0 (silence).
+    out = np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+    return _match_length(out, len(y))
 
-    denoised = nr.reduce_noise(y=y, sr=sr, stationary=stationary)
-
-    if output_path:
-        sf.write(output_path, denoised, sr)
-
-    return denoised, sr

@@ -6,7 +6,7 @@ STOI improvement after enhancement").
 For each clean recording x each degradation condition (reusing
 `experiment.py`'s conditions and sample), this compares WITHOUT enhancement
 vs WITH enhancement (`enhancement.py`) on:
-  - blind SNR estimate (quality_gate.py)
+  - blind SNR estimate (quality_metrics.py)
   - STOI vs the clean reference (short-time objective intelligibility,
     0-1, higher = more intelligible) — always available, no extra install
   - PESQ vs the clean reference (perceptual speech quality, roughly -0.5 to
@@ -17,24 +17,22 @@ vs WITH enhancement (`enhancement.py`) on:
     just "sound cleaner"?)
 
 Usage:
-    python -m src.component1_robustness.evaluate_enhancement
+    python -m component1_robustness.evaluate_enhancement
 """
 
 import os
-import glob
-import tempfile
 
-import numpy as np
 import pandas as pd
-import joblib
-import soundfile as sf
 import librosa
 import matplotlib.pyplot as plt
 
-from .degradation import add_white_noise, add_synthetic_reverb, simulate_compression, apply_gain
-from .enhancement import enhance_audio
-from .quality_gate import estimate_quality_db
-from ..component2_phonation.features import extract_phonation_features
+from component1_robustness.conditions import CONDITIONS, condition_rng, degrade, sample_clean_files
+from component1_robustness.config import load_config, resolve_path
+from component1_robustness.enhancement import enhance
+from component1_robustness.features_check import (
+    NO_PREDICTION, load_component2_model, phonation_features, predict_component2,
+)
+from component1_robustness.quality_metrics import estimate_quality_db
 
 try:
     from pystoi import stoi as _stoi
@@ -46,48 +44,13 @@ try:
 except ImportError:
     _pesq = None
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component1_robustness")
-MODEL_PATH = os.path.join(REPO_ROOT, "models", "component2_phonation_vowel_combined_rf.joblib")
-AH_RAW_DIR = os.path.join(REPO_ROOT, "data", "vowel_task", "raw")
-
-N_PER_CLASS = 15
-RANDOM_STATE = 42
 PESQ_SR = 16000  # pesq requires 8000 or 16000 Hz
 
-CONDITIONS = [
-    ("noise_snr_10db", ("noise", 10)),
-    ("noise_snr_5db", ("noise", 5)),
-    ("noise_snr_0db", ("noise", 0)),
-    ("noise_snr_-5db", ("noise", -5)),
-    ("reverb_mild_rt0.3", ("reverb", 0.3)),
-    ("reverb_heavy_rt0.6", ("reverb", 0.6)),
-    ("compression_low", ("compression", "low")),
-    ("distance_quiet_-6db", ("gain", -6)),
-    ("distance_far_-12db", ("gain", -12)),
-]
-
-
-def _sample_clean_files():
-    pd_files = sorted(glob.glob(os.path.join(AH_RAW_DIR, "PD_AH", "*.wav")))
-    hc_files = sorted(glob.glob(os.path.join(AH_RAW_DIR, "HC_AH", "*.wav")))
-    rng = np.random.default_rng(RANDOM_STATE)
-    pd_sample = rng.choice(pd_files, size=min(N_PER_CLASS, len(pd_files)), replace=False)
-    hc_sample = rng.choice(hc_files, size=min(N_PER_CLASS, len(hc_files)), replace=False)
-    return [(f, 1) for f in pd_sample] + [(f, 0) for f in hc_sample]
-
-
-def _degrade(y, sr, spec):
-    kind, param = spec
-    if kind == "noise":
-        return add_white_noise(y, snr_db=param)
-    if kind == "reverb":
-        return add_synthetic_reverb(y, sr, rt60_sec=param)
-    if kind == "compression":
-        return simulate_compression(y, sr, level=param)
-    if kind == "gain":
-        return apply_gain(y, gain_db=param)
-    raise ValueError(f"Unknown degradation kind: {kind}")
+# The enhancement study uses a subset of the shared CONDITIONS (same specs,
+# same names): "clean" has nothing to enhance, and the two milder
+# compression levels are skipped to keep run time down.
+SKIPPED_CONDITIONS = {"clean", "compression_high", "compression_medium"}
+ENHANCEMENT_CONDITIONS = [(name, spec) for name, spec in CONDITIONS if name not in SKIPPED_CONDITIONS]
 
 
 def _safe_stoi(clean, other, sr):
@@ -110,65 +73,57 @@ def _safe_pesq(clean, other, sr):
 
 
 def main():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    config = load_config()
+    results_dir = resolve_path(config, "results")
+    results_dir.mkdir(parents=True, exist_ok=True)
     if _stoi is None:
         print("WARNING: pystoi not installed — STOI columns will be empty.")
     if _pesq is None:
         print("WARNING: pesq not installed (needs a C compiler on Windows; installs fine on "
               "Colab/Linux) — PESQ columns will be empty.")
 
-    bundle = joblib.load(MODEL_PATH)
-    model = bundle["model"]
-    model_features = bundle["feature_names"]
+    model, model_features = load_component2_model(config)
 
-    files = _sample_clean_files()
-    print(f"Testing {len(files)} recordings x {len(CONDITIONS)} conditions x [degraded, enhanced]")
+    seed = config["seed"]
+    method = config["enhancement_method"]   # same cleaning the pipeline uses
+    files = sample_clean_files(seed, resolve_path(config, "raw_data"))
+    print(f"Testing {len(files)} recordings x {len(ENHANCEMENT_CONDITIONS)} conditions x [degraded, enhanced]")
 
     rows = []
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for fi, (filepath, true_label) in enumerate(files):
-            y, sr = librosa.load(filepath, sr=None, mono=True)
-            print(f"[{fi + 1}/{len(files)}] {os.path.basename(filepath)}")
+    for fi, (filepath, true_label) in enumerate(files):
+        y, sr = librosa.load(filepath, sr=None, mono=True)
+        print(f"[{fi + 1}/{len(files)}] {os.path.basename(filepath)}")
 
-            clean_feats = extract_phonation_features(filepath)
-            if clean_feats is None:
-                continue
-            clean_X = pd.DataFrame([clean_feats])[model_features]
-            clean_pred = int(model.predict(clean_X)[0])
+        clean_pred, _ = predict_component2(model, model_features, phonation_features(y, sr))
+        if clean_pred == NO_PREDICTION:
+            continue
 
-            for cond_name, spec in CONDITIONS:
-                degraded = _degrade(y, sr, spec)
-                degraded_path = os.path.join(tmpdir, "degraded.wav")
-                sf.write(degraded_path, degraded, sr)
+        for cond_name, spec in ENHANCEMENT_CONDITIONS:
+            degraded = degrade(y, sr, spec, condition_rng(seed, os.path.basename(filepath), cond_name))
+            enhanced = enhance(degraded, sr, method, seed)
 
-                enhanced, enh_sr = enhance_audio(degraded_path)
+            for variant, signal in [("degraded", degraded), ("enhanced", enhanced)]:
+                feats = phonation_features(signal, sr)
+                if feats is None:
+                    continue
+                pred, _ = predict_component2(model, model_features, feats)
 
-                for variant, signal in [("degraded", degraded), ("enhanced", enhanced)]:
-                    variant_path = os.path.join(tmpdir, "variant.wav")
-                    sf.write(variant_path, signal, sr)
-
-                    feats = extract_phonation_features(variant_path)
-                    if feats is None:
-                        continue
-                    X = pd.DataFrame([feats])[model_features]
-                    pred = int(model.predict(X)[0])
-
-                    quality_db, quality_method = estimate_quality_db(variant_path)
-                    rows.append({
-                        "filename": os.path.basename(filepath),
-                        "true_label": true_label,
-                        "condition": cond_name,
-                        "variant": variant,
-                        "quality_db": quality_db,
-                        "quality_method": quality_method,
-                        "stoi_vs_clean": _safe_stoi(y, signal, sr),
-                        "pesq_vs_clean": _safe_pesq(y, signal, sr),
-                        "prediction": pred,
-                        "prediction_matches_clean": pred == clean_pred,
-                    })
+                quality_db, quality_method = estimate_quality_db(signal, sr)
+                rows.append({
+                    "filename": os.path.basename(filepath),
+                    "true_label": true_label,
+                    "condition": cond_name,
+                    "variant": variant,
+                    "quality_db": quality_db,
+                    "quality_method": quality_method,
+                    "stoi_vs_clean": _safe_stoi(y, signal, sr),
+                    "pesq_vs_clean": _safe_pesq(y, signal, sr),
+                    "prediction": pred,
+                    "prediction_matches_clean": pred == clean_pred,
+                })
 
     df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(RESULTS_DIR, "enhancement_raw_results.csv"), index=False)
+    df.to_csv(results_dir / "enhancement_raw_results.csv", index=False)
 
     summary = df.groupby(["condition", "variant"]).agg(
         n=("filename", "count"),
@@ -179,7 +134,7 @@ def main():
     )
     print("\n=== Enhancement summary (degraded vs enhanced) ===")
     print(summary)
-    summary.to_csv(os.path.join(RESULTS_DIR, "enhancement_summary.csv"))
+    summary.to_csv(results_dir / "enhancement_summary.csv")
 
     pivot_agreement = summary["prediction_agreement_with_clean"].unstack("variant")
     pivot_snr = summary["mean_quality_db"].unstack("variant")
@@ -197,10 +152,10 @@ def main():
     axes[1].tick_params(axis="x", rotation=45)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(RESULTS_DIR, "enhancement_improvement.png"), bbox_inches="tight")
+    plt.savefig(results_dir / "enhancement_improvement.png", bbox_inches="tight")
     plt.close()
 
-    print(f"\nSaved results to {RESULTS_DIR}")
+    print(f"\nSaved results to {results_dir}")
 
 
 if __name__ == "__main__":

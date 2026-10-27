@@ -5,3 +5,6 @@
 data/**
 !data/**/
 !data/**/*.md
+
+# Component 1 per-recording outputs (raw/enhanced audio, plots, report.json)
+outputs/

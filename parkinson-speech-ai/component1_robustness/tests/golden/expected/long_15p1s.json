@@ -1,0 +1,20 @@
+{
+  "clip_id": "long_15p1s_3cc7e59b",
+  "task": "vowel",
+  "gate_model": "comp1-A",
+  "decision": "FAIL",
+  "quality_score": 0.0,
+  "reason": "too_long",
+  "duration_s": 15.1,
+  "quality_before": null,
+  "quality_after": null,
+  "features_before": null,
+  "features_after": null,
+  "feature_preserved": null,
+  "audio_for_next_stage": null,
+  "audio_choice": null,
+  "next_component": null,
+  "user_message": "The recording is too long. Please keep it under 15 seconds.",
+  "input_sha256": "3cc7e59b2ec39b10b1e3ba3dea461ad91c5d8eed8680978bf7d62e4af7231d46",
+  "config_version": "v1.0"
+}

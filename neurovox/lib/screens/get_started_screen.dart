@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n/language_controller.dart';
 import 'get_started_screen_2.dart';
 import 'auth/login_screen.dart';
 
@@ -13,7 +14,9 @@ class GetStartedScreen extends StatelessWidget {
     const Color primaryTealLight = Color(0xFF0EC4B7);
     const Color lightGrey = Color(0xFF666666);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) => AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
@@ -33,9 +36,9 @@ class GetStartedScreen extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text(
-                'Skip',
-                style: TextStyle(
+              child: Text(
+                tr('skipButton'),
+                style: const TextStyle(
                   color: primaryTeal,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -94,10 +97,10 @@ class GetStartedScreen extends StatelessWidget {
                 const Spacer(flex: 2),
 
                 // Title
-                const Text(
-                  'Voice Health Analysis',
+                Text(
+                  tr('voiceHealthAnalysisTitle'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: primaryTeal,
@@ -107,12 +110,12 @@ class GetStartedScreen extends StatelessWidget {
                 const SizedBox(height: 14),
 
                 // Description
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: Text(
-                    'Analyze your speech acoustic features and detect subtle vocal patterns with precision.',
+                    tr('voiceHealthAnalysisDesc'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       height: 1.5,
                       color: lightGrey,
@@ -178,22 +181,22 @@ class GetStartedScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Next',
-                              style: TextStyle(
+                              tr('nextButton'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3,
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Icon(
+                            const SizedBox(width: 8),
+                            const Icon(
                               Icons.arrow_forward_rounded,
                               color: Colors.white,
                               size: 20,
@@ -209,6 +212,7 @@ class GetStartedScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

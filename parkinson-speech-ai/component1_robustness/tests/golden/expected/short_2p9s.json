@@ -1,0 +1,20 @@
+{
+  "clip_id": "short_2p9s_5d710526",
+  "task": "vowel",
+  "gate_model": "comp1-A",
+  "decision": "FAIL",
+  "quality_score": 0.0,
+  "reason": "too_short",
+  "duration_s": 2.9,
+  "quality_before": null,
+  "quality_after": null,
+  "features_before": null,
+  "features_after": null,
+  "feature_preserved": null,
+  "audio_for_next_stage": null,
+  "audio_choice": null,
+  "next_component": null,
+  "user_message": "The recording is too short. Please record for at least 3 seconds.",
+  "input_sha256": "5d71052694ebe3dd2f2a8c34b17f98ed18ad07c2e2231666927f41acc667b346",
+  "config_version": "v1.0"
+}

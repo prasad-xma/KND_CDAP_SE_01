@@ -9,7 +9,9 @@ const Map<String, String> enEnStrings = {
   'step2Badge': 'STEP 2 OF 2',
   'step1Title': 'Sustained Vowel Task',
   'step1Instruction':
-      'Take a breath and say "aaaa" clearly into the microphone, holding the sound steady for about 5 seconds.',
+      'Take a breath and say "aaaa" clearly into the microphone, holding the sound steady. You\'ll record 3 short takes, averaged for a more reliable score.',
+  'recordingBadgePrefix': 'RECORDING',
+  'recordingCapturedNext': 'Recording captured! Tap the mic for the next one.',
   'toggleExtractOn': 'Extract vowel segment first, then measure',
   'toggleExtractOff': 'Measure whole recording as-is',
   'beginButton': 'Begin Phonation Task',
@@ -152,4 +154,61 @@ const Map<String, String> enEnStrings = {
   'ddkRateLabel': 'DDK Rate (Syllables/sec):',
   'ddkRateNormal': '6.2 (Normal)',
   'viewDetailedReportButton': 'View Detailed Report',
+
+  'homePhonationCardTitle': 'Phonation Screening',
+  'homePhonationCardDesc': 'Run a sustained-vowel voice test to check your acoustic biomarkers.',
+  'startTestButton': 'Start Test',
+  'assessmentModulesTitle': 'Assessment Modules',
+  'seeAllButton': 'See All',
+  'noAssessmentsYetTitle': 'No assessments yet',
+  'noAssessmentsYetDesc': 'Run a phonation test to see results here.',
+
+  'stepStartTaskTitle': 'Start Task',
+  'stepStartTaskSubtitle': 'Begin your assessment session',
+  'stepPhonationTitle': 'Phonation Test',
+  'stepPhonationSubtitle': 'Sustained vowel voice check',
+  'stepMotorTitle': 'Speech Motor Task',
+  'stepMotorSubtitle': 'DDK passage reading task',
+  'stepAnalysisTitle': 'Analysis',
+  'stepAnalysisSubtitle': 'Fusion result across both tasks',
+
+  'actionCardPhonationSubtitle': 'Pitch & Jitter check',
+  'actionCardMotorTitle': 'Speech-Motor',
+  'actionCardMotorSubtitle': 'Passage reading task',
+  'actionCardReportsTitle': 'Risk Reports',
+  'actionCardReportsSubtitle': 'Fusion diagnostics',
+  'actionCardLiveMicTitle': 'Live Mic Test',
+  'actionCardLiveMicSubtitle': 'Real-time assessment',
+
+  'reportsTitle': 'Reports & Risk Analysis',
+  'reportsSubtitle': 'Multi-modal vocal biomarker fusion results',
+  'finalScorePendingTitle': 'Final score pending',
+  'finalScorePendingDesc':
+      'The fused risk score needs both Phonation and Speech-Motor results. Complete both assessments to see it here.',
+  'phonationResultsSectionTitle': 'Phonation Test Results',
+  'speechMotorResultsSectionTitle': 'Speech-Motor Test Results',
+  'noPhonationResultsYet': 'No phonation results yet.',
+  'motorResultsNotAvailableDesc': 'Not available yet - this assessment is still being built.',
+  'vowelTaskFullLabel': 'Vowel Task (Sustained "aaaa")',
+  'phraseTaskFullLabel': 'Phrase Task (Read-Aloud)',
+  'phraseTaskNotRun': 'Phrase task not run (vowel-only mode).',
+
+  'liveMicTestTitle': 'Live Mic Test',
+  'notAvailableYetTitle': 'Not available yet',
+  'liveMicNotAvailableDesc': 'This assessment is a different component and is still being built.',
+  'motorNotAvailableDesc': 'This assessment is still being built.',
+
+  'skipButton': 'Skip',
+  'voiceHealthAnalysisTitle': 'Voice Health Analysis',
+  'voiceHealthAnalysisDesc':
+      'Analyze your speech acoustic features and detect subtle vocal patterns with precision.',
+  'nextButton': 'Next',
+  'aiPoweredInsightsTitle': 'AI-Powered Insights',
+  'aiPoweredInsightsDesc':
+      'Track clinical voice biomarkers, speech stability, and receive intelligent diagnostic health summaries.',
+  'logInButton': 'Log In',
+  'createNewAccountButton': 'Create New Account',
+
+  'getStartedButton': 'Get Started',
+  'clinicalGradeTagline': 'Clinical Grade Vocal Analysis',
 };

@@ -113,9 +113,9 @@ component — see each component's README for the exact command.
 
 | Component | Command |
 |---|---|
-| 1 — Robustness | `python -m src.component1_robustness.experiment` |
-| 1 — Enhancement + quality gate | `python -m src.component1_robustness.evaluate_enhancement` |
-| 1 — Quality gate precision/recall | `python -m src.component1_robustness.validate_quality_gate` |
+| 1 — Robustness | `python -m component1_robustness.experiment` |
+| 1 — Enhancement + quality gate | `python -m component1_robustness.evaluate_enhancement` |
+| 1 — Quality gate precision/recall | `python -m component1_robustness.validate_quality_gate` |
 | 2 — Phonation | `python -m src.component2_phonation.train_vowel_combined` |
 | 3 — DDK | `python -m src.component3_ddk.train` |
 | 3 — Fusion ablation | `python -m src.fusion.train_italian_pvs_fusion` |
