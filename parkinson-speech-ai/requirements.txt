@@ -14,3 +14,7 @@ pesq
 fastapi
 uvicorn[standard]
 python-multipart
+pytest
+pyyaml
+jsonschema
+httpx  # needed by fastapi.testclient in the API tests

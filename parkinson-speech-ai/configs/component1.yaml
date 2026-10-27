@@ -1,0 +1,66 @@
+# Component 1 — Acoustic Robustness & Quality Gate configuration.
+# Fixed by the developer; the end user never edits this file.
+# All paths are relative to the repo root (parkinson-speech-ai/).
+
+config_version: v1.0
+
+# Reproducibility
+seed: 42
+
+# Audio standardisation
+sample_rate: 16000            # Hz, mono
+
+# Duration check (seconds)
+min_duration_s: 3.0
+max_duration_s: 15.0
+
+# Quality thresholds
+reliable_db: 10.0             # SNR/HNR pass threshold (from robustness_summary.csv)
+max_clipping_pct: 1.0         # max % of samples at full scale
+min_voice_activity_pct: 50.0  # PLACEHOLDER — calibrated in a later part
+
+# Enhancement and gate model
+enhancement_method: noisereduce_nonstationary
+gate_model: comp1-A           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
+comp1a_score_span_db: 20.0    # comp1-A score: reliable_db -> 50, +/- this many dB -> 100 / 0
+gate_pass_probability: 0.5    # comp1-B: PASS when P(reliable) >= this
+n_mfcc: 13                    # MFCC means used by comp1-B
+
+# Max allowed relative change (|after - before| / |before|) for a
+# biomarker to count as "preserved" after enhancement.
+# PLACEHOLDERS — calibrated in a later part.
+feature_tolerances:
+  jitter: 0.20
+  shimmer: 0.20
+  hnr: 0.15
+  mean_f0: 0.05
+
+# The same check for DDK recordings, on Component 3's own features
+# (component3_ddk.features). PLACEHOLDERS — calibrated in a later part.
+ddk_feature_tolerances:
+  ddk_rate: 0.05
+  mean_ioi: 0.05
+  cv_ioi: 0.20
+  pause_ratio: 0.20
+
+# Gate benchmark (component1_robustness/benchmark.py)
+benchmark:
+  models: [comp1-A, comp1-B-rf, comp1-B-svm, comp1-B-logreg]
+  n_folds: 5                    # StratifiedGroupKFold by participant_id
+  test_fraction: 0.2            # participants held out for the final test set
+  apply_duration_rule: false    # AH clips are 1.7-5.5 s; the 3-15 s rule would reject
+                                # many for every model alike and hide quality differences
+  # Lexicographic selection: values within selection_tolerance of the best count as tied.
+  selection_order: [false_accept_rate, downstream_accuracy, f1, speed]
+  selection_tolerance: 0.01
+  max_false_reject_rate: 0.5    # eligibility: a gate that rejects everything has FAR 0
+  old_label_agreement: 0.7      # per-condition labels used by the old validation
+  # Previous comp1-A result (old per-condition labels), shown next to the new numbers.
+  previous_metrics_file: quality_gate_validation_metrics.json
+
+paths:
+  models: models
+  results: results/component1_robustness
+  outputs: outputs/component1
+  raw_data: data/vowel_task/raw
+  component2_model: models/component2_phonation_vowel_combined_rf.joblib

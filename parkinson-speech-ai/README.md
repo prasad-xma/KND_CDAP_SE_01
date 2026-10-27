@@ -33,7 +33,7 @@ branches off `main`.
 
 | | Focus | Task | Code | Best result |
 |---|---|---|---|---|
-| **1** | Acoustic robustness | Noise/reverb/compression degradation | `src/component1_robustness/` | See below |
+| **1** | Acoustic robustness + quality gate | Gate every recording before 2/3 | `component1_robustness/` | See below |
 | **2** | Phonation | Sustained vowel "aaaaaa" | `src/component2_phonation/` | 81.0% CV accuracy |
 | **3** | Speech-motor (DDK) | "pa"/"ta" repetition | `src/component3_ddk/` | 94.0% CV accuracy |
 
@@ -76,19 +76,39 @@ python -m src.component3_ddk.train
 python -m src.component3_ddk.predict path/to/pa_or_ta_recording.wav
 ```
 
-## Component 1 — Acoustic Robustness
+## Component 1 — Acoustic Robustness & Quality Gate
 
-Degrades clean recordings (synthetic noise/reverb/compression/gain — proxies,
-not real recorded corpora, see its README) and re-runs Component 2's trained
-model to see whether predictions survive. Headline finding: **compression is
-well-tolerated (96-100% prediction agreement with clean even at low quality),
-but background noise and quiet/distant recording degrade accuracy sharply**
-(down to ~57-60% at 0dB SNR or -12dB gain) — directly motivating a
-pre-analysis quality gate before Components 2/3 run on a real smartphone
-recording.
+The first stage of the pipeline: a **quality gate** (not a PD classifier).
+For each recording it checks duration, clipping and noise, tries enhancement,
+checks that enhancement did not alter the PD biomarkers (jitter, shimmer, HNR,
+F0), and either forwards the audio to Component 2/3 or asks the user to
+re-record. Full details: [component1_robustness/README.md](component1_robustness/README.md).
+
+**Robustness study** (synthetic degradations, Component 2's own model):
+compression is well tolerated (96–100% prediction agreement with clean even at
+low quality), but background noise and quiet/distant recording degrade it
+sharply (~57–60% at 0 dB SNR or −12 dB gain). This is why the gate exists.
+
+**Gate results.** The old validation labelled every clip in a degradation
+condition the same way; the new benchmark labels each clip by what actually
+happened to it and compares five gate models under participant-grouped
+5-fold cross-validation with a held-out test set.
+
+| Gate | Labels | Accuracy | Recall (unreliable) | False accept rate |
+|---|---|---|---|---|
+| comp1-A (SNR/HNR ≥ 10 dB), previous validation | per condition, 360 clips | 59.4% | 48.6% | 51.4% |
+| comp1-A / B (RF, SVM, LogReg) / C (DNSMOS) | per clip, 81 clips × 12 conditions | *run the benchmark (below)* | | |
+
+The new rows come from `results/component1_robustness/gate_benchmark.csv`
+after running the two commands below on the AH vowel dataset (not in git; see
+SETUP.md). The selected model and the reason are written to
+`selected_gate_model.json` and to `gate_model` in `configs/component1.yaml`.
 
 ```
-python -m src.component1_robustness.experiment
+python -m component1_robustness.labels      # per-clip labels
+python -m component1_robustness.benchmark   # compare gates, select one
+python -m component1_robustness.cli --input recording.m4a --task vowel
+pytest component1_robustness/tests          # full verification suite
 ```
 
 ## Known limitations (read before quoting any number externally)
