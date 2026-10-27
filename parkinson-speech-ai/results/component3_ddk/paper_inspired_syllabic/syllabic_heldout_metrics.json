@@ -1,0 +1,213 @@
+{
+  "component": "component3_ddk_syllabic",
+  "paper_reference": "Gomez-Vilda et al., BIOSIGNALS 2021",
+  "dataset_root": "D:\\Projects\\KND_CDAP_SE_01\\parkinson-speech-ai\\data\\Italian Parkinson_s Voice and speech",
+  "random_state": 42,
+  "test_size": 0.2,
+  "n_conservative_groups_total": 46,
+  "n_groups_train": 36,
+  "n_groups_test": 10,
+  "n_recordings_train": 54,
+  "n_recordings_test": 11,
+  "group_overlap": [],
+  "segmentation": {
+    "method": "TKEO",
+    "min_active_sec": 0.03,
+    "min_silence_sec": 0.02,
+    "smooth_ms": 10,
+    "threshold_pct": 15,
+    "iaif_used": false,
+    "note": "IAIF unavailable; TKEO is a documented approximation."
+  },
+  "jsd": {
+    "bins": 20,
+    "smoothing": 1e-10,
+    "base": 2,
+    "convention": "jensenshannon returns sqrt(JSD)",
+    "reference": "training HC only",
+    "cv_reference": "rebuilt per fold"
+  },
+  "feature_names": [
+    "n_active",
+    "active_mean",
+    "active_std",
+    "active_skew",
+    "active_kurt",
+    "active_normaltest_stat",
+    "active_normaltest_p",
+    "n_silence",
+    "silence_mean",
+    "silence_std",
+    "silence_skew",
+    "silence_kurt",
+    "silence_normaltest_stat",
+    "silence_normaltest_p",
+    "active_ratio",
+    "cv_active",
+    "cv_silence",
+    "jsd_active",
+    "jsd_silence"
+  ],
+  "syllabic_failures": 3,
+  "training_cv": {
+    "random_forest": {
+      "fold_accuracies": [
+        0.8181818181818182,
+        0.8181818181818182,
+        1.0,
+        1.0,
+        0.8181818181818182,
+        0.6363636363636364,
+        0.9090909090909091,
+        1.0,
+        0.6363636363636364,
+        1.0,
+        0.7272727272727273,
+        1.0,
+        0.7272727272727273,
+        0.9090909090909091,
+        1.0
+      ],
+      "mean_accuracy": 0.8666666666666666,
+      "std_accuracy": 0.13222681351073592,
+      "n_folds": 15
+    },
+    "svm_rbf": {
+      "fold_accuracies": [
+        0.8181818181818182,
+        0.9090909090909091,
+        0.9090909090909091,
+        0.8,
+        0.8181818181818182,
+        0.7272727272727273,
+        1.0,
+        0.6363636363636364,
+        0.7272727272727273,
+        0.9,
+        0.8181818181818182,
+        1.0,
+        0.7272727272727273,
+        0.9090909090909091,
+        0.8
+      ],
+      "mean_accuracy": 0.8333333333333334,
+      "std_accuracy": 0.10088679342330192,
+      "n_folds": 15
+    },
+    "logistic_regression": {
+      "fold_accuracies": [
+        0.9090909090909091,
+        0.9090909090909091,
+        0.8181818181818182,
+        0.9,
+        0.8181818181818182,
+        0.6363636363636364,
+        1.0,
+        0.7272727272727273,
+        0.7272727272727273,
+        0.9,
+        0.9090909090909091,
+        1.0,
+        0.7272727272727273,
+        1.0,
+        0.8
+      ],
+      "mean_accuracy": 0.8521212121212121,
+      "std_accuracy": 0.10901344050713627,
+      "n_folds": 15
+    }
+  },
+  "held_out_recording_metrics": {
+    "evaluation": "held_out_test_recording_syllabic",
+    "participants": 5,
+    "recordings": 11,
+    "accuracy": 1.0,
+    "precision_PD": 1.0,
+    "sensitivity_recall_PD": 1.0,
+    "specificity_HC": 1.0,
+    "f1_PD": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix_hc_pd": [
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        10
+      ]
+    ],
+    "classification_report": {
+      "HC": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 1.0
+      },
+      "PD": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 10.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 11.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 11.0
+      }
+    }
+  },
+  "held_out_participant_metrics": {
+    "evaluation": "held_out_test_participant_syllabic",
+    "participants": 5,
+    "recordings": 11,
+    "accuracy": 1.0,
+    "precision_PD": 1.0,
+    "sensitivity_recall_PD": 1.0,
+    "specificity_HC": 1.0,
+    "f1_PD": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix_hc_pd": [
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        4
+      ]
+    ],
+    "missing_task_participants": 1
+  },
+  "task_metrics": [
+    {
+      "task": "D1",
+      "status": "evaluated",
+      "train_recordings": 26,
+      "test_recordings": 6,
+      "test_groups": 5,
+      "accuracy": 1.0,
+      "precision_PD": 1.0,
+      "sensitivity_recall_PD": 1.0,
+      "specificity_HC": 1.0,
+      "f1_PD": 1.0,
+      "roc_auc": 1.0
+    },
+    {
+      "task": "D2",
+      "status": "skipped \u2014 missing class",
+      "train_recordings": 28,
+      "test_recordings": 5
+    }
+  ],
+  "personal_recordings_used": false,
+  "baseline_unmodified": true
+}

@@ -1,117 +1,17 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/i18n/language_controller.dart';
 import '../core/widgets/language_toggle_button.dart';
 
 class SpeechMotorTestScreen extends StatefulWidget {
-  const SpeechMotorTestScreen({super.key});
+  final VoidCallback? onClose;
+
+  const SpeechMotorTestScreen({super.key, this.onClose});
 
   @override
   State<SpeechMotorTestScreen> createState() => _SpeechMotorTestScreenState();
 }
 
 class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
-  bool _isRecording = false;
-  int _secondsRemaining = 10;
-  Timer? _timer;
-
-  void _startRecording() {
-    setState(() {
-      _isRecording = true;
-      _secondsRemaining = 10;
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
-      } else {
-        _stopRecording();
-        _showSuccessDialog();
-      }
-    });
-  }
-
-  void _stopRecording() {
-    _timer?.cancel();
-    setState(() {
-      _isRecording = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _showSuccessDialog() {
-    const Color primaryBlue = Color(0xFF2563EB);
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: Colors.white,
-          title: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: primaryBlue, size: 28),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  tr('taskCompleteTitle'),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tr('taskCompleteDesc'),
-                style: const TextStyle(color: Color(0xFF4A4A4A), fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      tr('ddkRateLabel'),
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2D3748)),
-                    ),
-                    Text(
-                      tr('ddkRateNormal'),
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: primaryBlue),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                tr('viewDetailedReportButton'),
-                style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildInstructionCard(String step, String title, String description, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -209,11 +109,15 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                     ),
                   ),
                   const LanguageToggleButton(activeColor: primaryBlue),
+                  if (widget.onClose != null)
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close_rounded, color: mediumGrey),
+                    ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // Main Test Card
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -232,61 +136,28 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                     Container(
                       width: 90,
                       height: 90,
-                      decoration: BoxDecoration(
-                        color: _isRecording ? Colors.redAccent.withValues(alpha: 0.1) : const Color(0xFFEFF6FF),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
                         shape: BoxShape.circle,
                       ),
-                      child: Center(
-                        child: Icon(
-                          _isRecording ? Icons.mic_rounded : Icons.settings_voice_rounded,
-                          size: 48,
-                          color: _isRecording ? Colors.redAccent : primaryBlue,
-                        ),
+                      child: const Center(
+                        child: Icon(Icons.construction_rounded, size: 44, color: primaryBlue),
                       ),
                     ),
                     const SizedBox(height: 18),
-                    Text(
-                      _isRecording ? '$_secondsRemaining ${tr('secondsRemainingSuffix')}' : tr('ddkRateTitle'),
+                    const Text(
+                      'Not available yet',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: _isRecording ? Colors.redAccent : darkSlate,
+                        color: darkSlate,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      tr('repeatPatakaPrompt'),
-                      style: const TextStyle(color: mediumGrey, fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 24),
-
-                    if (_isRecording)
-                      Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: 1.0 - (_secondsRemaining / 10.0),
-                              minHeight: 10,
-                              backgroundColor: Colors.grey.shade200,
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-
-                    ElevatedButton(
-                      onPressed: _isRecording ? _stopRecording : _startRecording,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isRecording ? Colors.redAccent : primaryBlue,
-                        minimumSize: const Size(double.infinity, 54),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: Text(
-                        _isRecording ? tr('stopMotorTask') : tr('startMotorTask'),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                    const Text(
+                      'This assessment is still being built.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: mediumGrey, fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -329,4 +200,3 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
     );
   }
 }
-
