@@ -145,19 +145,19 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Not available yet',
-                      style: TextStyle(
+                    Text(
+                      tr('notAvailableYetTitle'),
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: darkSlate,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'This assessment is still being built.',
+                    Text(
+                      tr('motorNotAvailableDesc'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: mediumGrey, fontSize: 14, fontWeight: FontWeight.w600),
+                      style: const TextStyle(color: mediumGrey, fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),

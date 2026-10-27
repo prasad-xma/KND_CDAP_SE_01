@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import '../core/i18n/language_controller.dart';
 import '../core/widgets/bottom_nav_bar.dart';
 import '../core/widgets/language_toggle_button.dart';
+import '../core/models/phonation_result.dart';
 import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
+import 'live_mic_test_screen.dart';
 
 const Color _bg = Color(0xFF0A0E14);
 const Color _surfaceRaised = Color(0xFF1A2330);
@@ -37,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   // 4 = Analysis active, 5 = all steps visited.
   int _progressStep = 1;
 
-  void _goToPhonationTab() => setState(() => _currentIndex = 1);
+  PhonationDualResult? _phonationResult;
 
   _StepState _stepStateFor(int step) {
     if (_progressStep > step) return _StepState.done;
@@ -47,26 +49,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      _buildHomeDashboardTab(),
-      PhonationTestScreen(
-        onClose: () => setState(() {
-          if (_progressStep == 2) _progressStep = 3;
-          _currentIndex = 0;
-        }),
-      ),
-      SpeechMotorTestScreen(
-        onClose: () => setState(() {
-          if (_progressStep == 3) _progressStep = 4;
-          _currentIndex = 0;
-        }),
-      ),
-      const ReportsScreen(),
-    ];
-
     return ListenableBuilder(
       listenable: LanguageController.instance,
       builder: (context, _) {
+        final List<Widget> pages = [
+          _buildHomeDashboardTab(),
+          PhonationTestScreen(
+            onResult: (result) => setState(() => _phonationResult = result),
+            onClose: () => setState(() {
+              if (_progressStep == 2) _progressStep = 3;
+              _currentIndex = 0;
+            }),
+          ),
+          SpeechMotorTestScreen(
+            onClose: () => setState(() {
+              if (_progressStep == 3) _progressStep = 4;
+              _currentIndex = 0;
+            }),
+          ),
+          ReportsScreen(phonationResult: _phonationResult),
+        ];
+
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
@@ -206,13 +209,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.graphic_eq_rounded, color: Color(0xFF071210), size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.graphic_eq_rounded, color: Color(0xFF071210), size: 20),
+                    const SizedBox(width: 8),
                     Text(
-                      'Phonation Screening',
-                      style: TextStyle(
+                      tr('homePhonationCardTitle'),
+                      style: const TextStyle(
                         color: Color(0xFF071210),
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -221,9 +224,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Run a sustained-vowel voice test to check your acoustic biomarkers.',
-                  style: TextStyle(
+                Text(
+                  tr('homePhonationCardDesc'),
+                  style: const TextStyle(
                     color: Color(0xCC071210),
                     fontSize: 13,
                     height: 1.4,
@@ -231,11 +234,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
-                  onPressed: _goToPhonationTab,
+                  onPressed: () {},
                   icon: const Icon(Icons.mic_none_rounded, color: _accentDim, size: 20),
-                  label: const Text(
-                    'Start Test',
-                    style: TextStyle(
+                  label: Text(
+                    tr('startTestButton'),
+                    style: const TextStyle(
                       color: _accentDim,
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
@@ -259,9 +262,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _buildGuidedStepsSection(),
           const SizedBox(height: 26),
 
-          const Text(
-            'Assessment Modules',
-            style: TextStyle(
+          Text(
+            tr('assessmentModulesTitle'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: _textPrimary,
@@ -280,31 +283,34 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             children: [
               _buildActionCard(
                 icon: Icons.graphic_eq_rounded,
-                title: 'Phonation Test',
-                subtitle: 'Pitch & Jitter check',
+                title: tr('stepPhonationTitle'),
+                subtitle: tr('actionCardPhonationSubtitle'),
                 iconColor: _accent,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
               _buildActionCard(
                 icon: Icons.record_voice_over_rounded,
-                title: 'Speech-Motor',
-                subtitle: 'Passage reading task',
+                title: tr('actionCardMotorTitle'),
+                subtitle: tr('actionCardMotorSubtitle'),
                 iconColor: const Color(0xFF5B9BFF),
                 onTap: () => setState(() => _currentIndex = 2),
               ),
               _buildActionCard(
                 icon: Icons.analytics_outlined,
-                title: 'Risk Reports',
-                subtitle: 'Fusion diagnostics',
+                title: tr('actionCardReportsTitle'),
+                subtitle: tr('actionCardReportsSubtitle'),
                 iconColor: const Color(0xFFBB86FC),
                 onTap: () => setState(() => _currentIndex = 3),
               ),
               _buildActionCard(
                 icon: Icons.mic_external_on_outlined,
-                title: 'Live Mic Test',
-                subtitle: 'Real-time assessment',
+                title: tr('actionCardLiveMicTitle'),
+                subtitle: tr('actionCardLiveMicSubtitle'),
                 iconColor: const Color(0xFFFFB24B),
-                onTap: _goToPhonationTab,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LiveMicTestScreen()),
+                ),
               ),
             ],
           ),
@@ -313,9 +319,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Recent Assessments',
-                style: TextStyle(
+              Text(
+                tr('recentActivity'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: _textPrimary,
@@ -324,9 +330,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
               TextButton(
                 onPressed: () => setState(() => _currentIndex = 3),
-                child: const Text(
-                  'See All',
-                  style: TextStyle(
+                child: Text(
+                  tr('seeAllButton'),
+                  style: const TextStyle(
                     color: _accent,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -349,15 +355,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               children: [
                 const Icon(Icons.history_rounded, color: _textFaint, size: 26),
                 const SizedBox(height: 10),
-                const Text(
-                  'No assessments yet',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: _textPrimary, fontSize: 13.5),
+                Text(
+                  tr('noAssessmentsYetTitle'),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: _textPrimary, fontSize: 13.5),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Run a phonation test to see results here.',
+                Text(
+                  tr('noAssessmentsYetDesc'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.5, color: _textSecondary),
+                  style: const TextStyle(fontSize: 12.5, color: _textSecondary),
                 ),
               ],
             ),
@@ -372,29 +378,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final steps = [
       (
         number: 1,
-        title: 'Start Task',
-        subtitle: 'Begin your assessment session',
+        title: tr('stepStartTaskTitle'),
+        subtitle: tr('stepStartTaskSubtitle'),
         icon: Icons.flag_rounded,
         onTap: () => setState(() => _progressStep = 2),
       ),
       (
         number: 2,
-        title: 'Phonation Test',
-        subtitle: 'Sustained vowel voice check',
+        title: tr('stepPhonationTitle'),
+        subtitle: tr('stepPhonationSubtitle'),
         icon: Icons.graphic_eq_rounded,
         onTap: () => setState(() => _currentIndex = 1),
       ),
       (
         number: 3,
-        title: 'Speech Motor Task',
-        subtitle: 'DDK passage reading task',
+        title: tr('stepMotorTitle'),
+        subtitle: tr('stepMotorSubtitle'),
         icon: Icons.record_voice_over_rounded,
         onTap: () => setState(() => _currentIndex = 2),
       ),
       (
         number: 4,
-        title: 'Analysis',
-        subtitle: 'Fusion result across both tasks',
+        title: tr('stepAnalysisTitle'),
+        subtitle: tr('stepAnalysisSubtitle'),
         icon: Icons.analytics_outlined,
         onTap: () => setState(() {
           _currentIndex = 3;
