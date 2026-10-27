@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-import soundfile as sf
 
 from component1_robustness.config import load_config
 from component1_robustness.quality_metrics import (
@@ -126,26 +125,9 @@ def test_has_usable_silence():
     assert has_usable_silence(continuous, SR) is False
 
 
-# --- HNR: array and path give the same answer ------------------------------
-
-def test_hnr_array_equals_path(tmp_path, tone):
-    noisy = _add_noise_at_snr(tone, np.ones(len(tone), bool), 15)
-    path = tmp_path / "noisy.wav"
-    sf.write(path, noisy, SR, subtype="FLOAT")
-    assert hnr(noisy, SR) == pytest.approx(hnr(str(path)), abs=1e-6)
-
-
-def test_hnr_array_requires_sr(tone):
-    with pytest.raises(ValueError):
+def test_hnr_requires_sr(tone):
+    with pytest.raises(TypeError):
         hnr(tone)
-
-
-def test_estimate_quality_db_array_equals_path(tmp_path):
-    clean, on = _gated_tone()
-    noisy = _add_noise_at_snr(clean, on, 40).astype(np.float32)
-    path = tmp_path / "gated.wav"
-    sf.write(path, noisy, SR, subtype="FLOAT")
-    assert estimate_quality_db(noisy, SR) == pytest.approx(estimate_quality_db(str(path)))
 
 
 # --- Monotonic: more noise never raises the estimate ------------------------

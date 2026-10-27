@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 from component1_robustness.benchmark import SELECTED_JSON
+from component1_robustness.cli import print_summary
 from component1_robustness.config import REPO_ROOT, load_config, resolve_path
 from component1_robustness.pipeline import run_gate
 
@@ -29,15 +30,7 @@ def show_recording(title: str, path: Path, config: dict) -> None:
     """Run the gate on one clip and print what happened."""
     report = run_gate(path, "vowel", config)
     print(f"\n{title}: {path.name}")
-    print(f"  Decision : {report['decision']}  (reason: {report['reason']}, "
-          f"quality score {report['quality_score']:.0f}/100)")
-    if report["decision"] == "PASS":
-        print(f"  Next     : {report['audio_choice']} audio -> {report['next_component']}")
-        print(f"             {report['audio_for_next_stage']}")
-    else:
-        print("  Next     : nothing forwarded")
-    print(f"  User sees: {report['user_message']}")
-    print(f"  Report   : {resolve_path(config, 'outputs') / report['clip_id'] / 'report.json'}")
+    print_summary(report, config)
 
 
 def run_tests() -> int:

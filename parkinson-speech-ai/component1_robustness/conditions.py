@@ -1,10 +1,14 @@
 """Single source of truth for the degradation conditions used in Component 1.
 
-experiment.py, evaluate_enhancement.py and validate_quality_gate.py all import
+experiment.py, evaluate_enhancement.py and labels.py all import
 CONDITIONS, condition_rng() and degrade() from here, so every study uses
 identical conditions AND identical random noise for the same clip.
+experiment.py and evaluate_enhancement.py also share sample_clean_files(),
+so both studies test the same recordings.
 """
 
+import glob
+import os
 import zlib
 
 import numpy as np
@@ -18,6 +22,8 @@ from component1_robustness.degradation import (
 
 # (name, spec) pairs. spec is None for the clean recording, otherwise (kind, parameter).
 Spec = tuple[str, float | str] | None
+
+N_PER_CLASS = 15   # recordings per class (PD / HC) sampled by the robustness and enhancement studies
 
 CONDITIONS: list[tuple[str, Spec]] = [
     ("clean", None),
@@ -63,3 +69,13 @@ def degrade(y: np.ndarray, sr: int, spec: Spec, rng: np.random.Generator) -> np.
     if kind == "gain":
         return apply_gain(y, gain_db=param)
     raise ValueError(f"Unknown degradation kind: {kind}")
+
+
+def sample_clean_files(seed: int, raw_dir, n_per_class: int = N_PER_CLASS) -> list[tuple[str, int]]:
+    """Seeded stratified sample of n_per_class PD and HC recordings: [(path, label)], PD = 1, HC = 0."""
+    pd_files = sorted(glob.glob(os.path.join(str(raw_dir), "PD_AH", "*.wav")))
+    hc_files = sorted(glob.glob(os.path.join(str(raw_dir), "HC_AH", "*.wav")))
+    rng = np.random.default_rng(seed)
+    pd_sample = rng.choice(pd_files, size=min(n_per_class, len(pd_files)), replace=False)
+    hc_sample = rng.choice(hc_files, size=min(n_per_class, len(hc_files)), replace=False)
+    return [(f, 1) for f in pd_sample] + [(f, 0) for f in hc_sample]

@@ -1,8 +1,7 @@
 """Signal-quality measurements for Component 1 (no pass/fail decisions here).
 
-quality_gate.py decides pass/fail; this module only MEASURES. Every function
-works on an in-memory signal (y, sr); the two SNR/HNR estimators also accept
-a file path, for backward compatibility.
+gate_models.py decides pass/fail; this module only MEASURES. Every function
+works on an in-memory signal (y, sr).
 
 Two SNR-style estimators, picked per recording, because one metric doesn't
 work for both task types:
@@ -15,8 +14,6 @@ work for both task types:
     A clip with no silence has no genuine noise floor, so the "quietest 10%
     of frames" would just be quiet vowel energy, not noise.
 """
-
-from pathlib import Path
 
 import librosa
 import numpy as np
@@ -43,9 +40,6 @@ VAD_ABS_FLOOR_DBFS = -60.0     # ...AND above -60 dBFS (so pure silence has 0% a
 # Clipping
 CLIP_THRESHOLD = 0.99
 
-AudioSource = str | Path | np.ndarray
-
-
 # --- Basic measurements ------------------------------------------------------
 
 def duration_s(y: np.ndarray, sr: int) -> float:
@@ -53,14 +47,19 @@ def duration_s(y: np.ndarray, sr: int) -> float:
     return len(y) / sr
 
 
+def duration_reason(seconds: float, min_s: float, max_s: float) -> str:
+    """"ok", "too_short" or "too_long". Limits are inclusive."""
+    if seconds < min_s:
+        return "too_short"
+    if seconds > max_s:
+        return "too_long"
+    return "ok"
+
+
 def check_duration(y: np.ndarray, sr: int, min_s: float, max_s: float) -> tuple[bool, str]:
     """Return (ok, reason) where reason is "ok", "too_short" or "too_long". Limits are inclusive."""
-    d = duration_s(y, sr)
-    if d < min_s:
-        return False, "too_short"
-    if d > max_s:
-        return False, "too_long"
-    return True, "ok"
+    reason = duration_reason(duration_s(y, sr), min_s, max_s)
+    return reason == "ok", reason
 
 
 def mean_level_dbfs(y: np.ndarray) -> float:
@@ -118,40 +117,20 @@ def silence_based_snr(y: np.ndarray) -> float:
     return float(20 * np.log10(signal_level / noise_floor))
 
 
-def _to_sound(source: AudioSource, sr: int | None) -> parselmouth.Sound:
-    """Build a Praat Sound from a file path, or from an array plus its sample rate."""
-    if isinstance(source, (str, Path)):
-        return parselmouth.Sound(str(source))
-    if sr is None:
-        raise ValueError("sr is required when passing an array")
-    return parselmouth.Sound(np.asarray(source, dtype=np.float64), sampling_frequency=sr)
-
-
-def hnr(source: AudioSource, sr: int | None = None) -> float:
-    """Mean harmonics-to-noise ratio (dB) via Praat. source = path, or array with sr.
-
-    Returns -inf when Praat finds no periodic frames.
-    """
-    sound = _to_sound(source, sr)
+def hnr(y: np.ndarray, sr: int) -> float:
+    """Mean harmonics-to-noise ratio (dB) via Praat. Returns -inf when Praat finds no periodic frames."""
+    sound = parselmouth.Sound(np.asarray(y, dtype=np.float64), sampling_frequency=sr)
     harmonicity = sound.to_harmonicity_cc(time_step=0.01, minimum_pitch=F0_MIN_HZ)
     value = parselmouth.praat.call(harmonicity, "Get mean", 0, 0)
     return float(value) if not np.isnan(value) else -np.inf
 
 
-def estimate_quality_db(source: AudioSource, sr: int | None = None) -> tuple[float, str]:
-    """Return (estimate_db, method); method is "silence_snr" or "hnr".
-
-    source = WAV path (as before), or an array with its sample rate.
-    """
-    if isinstance(source, (str, Path)):
-        y, sr = librosa.load(str(source), sr=None, mono=True)
-    else:
-        if sr is None:
-            raise ValueError("sr is required when passing an array")
-        y = np.asarray(source, dtype=np.float32)
+def estimate_quality_db(y: np.ndarray, sr: int) -> tuple[float, str]:
+    """Return (estimate_db, method); method is "silence_snr" or "hnr"."""
+    y = np.asarray(y, dtype=np.float32)
     if has_usable_silence(y, sr):
         return silence_based_snr(y), "silence_snr"
-    return hnr(source if isinstance(source, (str, Path)) else y, sr), "hnr"
+    return hnr(y, sr), "hnr"
 
 
 # --- All metrics together ----------------------------------------------------

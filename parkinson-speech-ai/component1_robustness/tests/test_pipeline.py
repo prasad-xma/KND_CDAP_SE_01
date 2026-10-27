@@ -159,9 +159,10 @@ def test_not_preserved_forwards_raw(tmp_path):
 
 
 def test_forwarded_audio_is_standardised(vowel_run):
-    report, cfg, _ = vowel_run
+    report, _, tmp = vowel_run
     info = sf.info(report["audio_for_next_stage"])
-    assert info.samplerate == cfg["sample_rate"] and info.channels == 1
+    # Forwarded audio keeps the input's own sample rate (no resampling).
+    assert info.samplerate == sf.info(tmp / "patient_vowel.wav").samplerate and info.channels == 1
 
 
 # --- Determinism ------------------------------------------------------------------
@@ -193,11 +194,11 @@ def test_m4a_input_is_converted_and_temp_wav_removed(tmp_path, monkeypatch):
     assert list((tmp_path / "tmp").iterdir()) == []   # converted WAV cleaned up
 
 
-def test_resampled_to_config_rate(tmp_path):
+def test_keeps_native_sample_rate(tmp_path):
     path = tmp_path / "v8k.wav"
     sf.write(path, make_vowel(duration_s=4.0, sr=8000), 8000)
     report = run_gate(str(path), "vowel", _config(tmp_path))
-    assert sf.info(tmp_path / "outputs" / report["clip_id"] / "raw.wav").samplerate == SR
+    assert sf.info(tmp_path / "outputs" / report["clip_id"] / "raw.wav").samplerate == 8000
     assert report["duration_s"] == pytest.approx(4.0, abs=1e-3)
 
 

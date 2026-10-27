@@ -24,6 +24,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def print_summary(report: dict, config: dict) -> None:
+    """Decision, score, message to the user, where the audio goes, and the report path."""
+    print(f"Decision      : {report['decision']} ({report['reason']})")
+    print(f"Quality score : {report['quality_score']:.1f} / 100")
+    print(f"Message       : {report['user_message']}")
+    if report["decision"] == "PASS":
+        print(f"Forwarding    : {report['audio_choice']} audio -> {report['next_component']}")
+        print(f"Audio         : {report['audio_for_next_stage']}")
+    else:
+        print("Forwarding    : nothing (recording rejected)")
+    print(f"Report        : {resolve_path(config, 'outputs') / report['clip_id'] / 'report.json'}")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if not Path(args.input).is_file():
@@ -31,14 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     config = load_config(args.config)
     report = run_gate(args.input, args.task, config)
-
-    print(f"Decision      : {report['decision']} ({report['reason']})")
-    print(f"Quality score : {report['quality_score']:.1f} / 100")
-    print(f"Message       : {report['user_message']}")
-    if report["decision"] == "PASS":
-        print(f"Forwarding    : {report['audio_choice']} audio -> {report['next_component']}")
-        print(f"Audio         : {report['audio_for_next_stage']}")
-    print(f"Report        : {resolve_path(config, 'outputs') / report['clip_id'] / 'report.json'}")
+    print_summary(report, config)
     return 0 if report["decision"] == "PASS" else 1
 
 

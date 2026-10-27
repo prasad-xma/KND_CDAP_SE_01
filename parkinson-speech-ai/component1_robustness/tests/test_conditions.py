@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 
 from component1_robustness import evaluate_enhancement, experiment
-from component1_robustness.conditions import CONDITIONS, condition_rng, degrade
+from component1_robustness.conditions import CONDITIONS, N_PER_CLASS, condition_rng, degrade, sample_clean_files
 from component1_robustness.config import load_config
 
-SAMPLING_SCRIPTS = [experiment, evaluate_enhancement]   # validate_quality_gate is now a benchmark wrapper
+SAMPLING_SCRIPTS = [experiment, evaluate_enhancement]
 
 
 def test_condition_names_unique():
@@ -72,7 +72,7 @@ def test_condition_rng_changes_with_any_input(other):
 
 
 def test_condition_rng_gives_same_degraded_audio_in_every_script(tone, sr):
-    """experiment / evaluate_enhancement / validate all derive noise the same way."""
+    """experiment / evaluate_enhancement / labels all derive noise the same way."""
     seed = load_config()["seed"]
     outputs = [degrade(tone, sr, ("noise", 5), condition_rng(seed, "a.wav", "noise_snr_5db")) for _ in range(3)]
     np.testing.assert_array_equal(outputs[0], outputs[1])
@@ -99,7 +99,7 @@ def test_no_hardcoded_random_state(module):
 
 @pytest.fixture
 def fake_raw_dir(tmp_path):
-    """Empty placeholder .wav files: _sample_clean_files only globs names."""
+    """Empty placeholder .wav files: sample_clean_files only globs names."""
     for group in ("PD_AH", "HC_AH"):
         (tmp_path / group).mkdir()
         for i in range(20):
@@ -111,20 +111,16 @@ def _names(sample) -> list[str]:
     return [str(item[0] if isinstance(item, tuple) else item) for item in sample]
 
 
-@pytest.mark.parametrize("module", SAMPLING_SCRIPTS, ids=lambda m: m.__name__.split(".")[-1])
-def test_sample_clean_files_seeded(module, fake_raw_dir, monkeypatch):
-    monkeypatch.setattr(module, "AH_RAW_DIR", str(fake_raw_dir))
-    a = _names(module._sample_clean_files(42))
-    b = _names(module._sample_clean_files(42))
-    c = _names(module._sample_clean_files(7))
+def test_sample_clean_files_seeded(fake_raw_dir):
+    a = _names(sample_clean_files(42, fake_raw_dir))
+    b = _names(sample_clean_files(42, fake_raw_dir))
+    c = _names(sample_clean_files(7, fake_raw_dir))
     assert a == b
     assert a != c
-    assert len(a) == 2 * module.N_PER_CLASS
+    assert len(a) == 2 * N_PER_CLASS
 
 
-def test_all_scripts_pick_the_same_files(fake_raw_dir, monkeypatch):
-    samples = []
-    for module in SAMPLING_SCRIPTS:
-        monkeypatch.setattr(module, "AH_RAW_DIR", str(fake_raw_dir))
-        samples.append(_names(module._sample_clean_files(42)))
-    assert samples[0] == samples[1]
+@pytest.mark.parametrize("module", SAMPLING_SCRIPTS, ids=lambda m: m.__name__.split(".")[-1])
+def test_scripts_share_one_sampler(module):
+    """Both studies use the same sampler, so they test the same recordings."""
+    assert module.sample_clean_files is sample_clean_files

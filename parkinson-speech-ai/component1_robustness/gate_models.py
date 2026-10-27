@@ -13,9 +13,8 @@ Every model first applies the same hard rules, in this order:
 Only then does the model itself decide.
 
 Models:
-    comp1-A          rule: SNR/HNR estimate >= reliable_db (the existing quality_gate.py rule)
+    comp1-A          rule: SNR/HNR estimate >= reliable_db (the original 10 dB rule)
     comp1-B-rf/svm/logreg   classical ML on quality metrics + MFCC means
-    comp1-C          DNSMOS (pretrained, non-intrusive) scores + logistic regression
 """
 
 from pathlib import Path
@@ -30,19 +29,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from component1_robustness import dnsmos
 from component1_robustness.config import resolve_path
-from component1_robustness.quality_metrics import MAX_SNR_DB, compute_quality
+from component1_robustness.quality_metrics import MAX_SNR_DB, compute_quality, duration_reason
 
 PASS, FAIL = "PASS", "FAIL"
 RELIABLE = "reliable"
 B_CLASSIFIERS = ("rf", "svm", "logreg")
-GATE_NAMES = ("comp1-A", *(f"comp1-B-{c}" for c in B_CLASSIFIERS), "comp1-C")
+GATE_NAMES = ("comp1-A", *(f"comp1-B-{c}" for c in B_CLASSIFIERS))
 TRAINABLE = tuple(n for n in GATE_NAMES if n != "comp1-A")
-
-
-class GateModelUnavailable(RuntimeError):
-    """Raised when a gate model's optional dependency or model file is missing."""
 
 
 # --- Inputs shared by all gates -------------------------------------------------
@@ -53,14 +47,8 @@ def mfcc_means(y: np.ndarray, sr: int, n_mfcc: int) -> dict[str, float]:
     return {f"mfcc_mean_{i + 1}": float(v) for i, v in enumerate(mfcc.mean(axis=1))}
 
 
-def make_dnsmos_scorer(config: dict) -> "dnsmos.DnsmosScorer | None":
-    """A DNSMOS scorer if onnxruntime and the model file are present, else None."""
-    path = resolve_path(config, "dnsmos_model")
-    return dnsmos.DnsmosScorer(path) if dnsmos.is_available(path) else None
-
-
-def gate_inputs(y: np.ndarray, sr: int, config: dict, scorer=None) -> dict:
-    """Everything any gate needs for one clip: compute_quality() + MFCC means (+ DNSMOS if scorer).
+def gate_inputs(y: np.ndarray, sr: int, config: dict) -> dict:
+    """Everything any gate needs for one clip: compute_quality() + MFCC means.
 
     MFCCs are taken after resampling to config["sample_rate"] so clips recorded
     at different rates are described on the same frequency scale.
@@ -70,8 +58,6 @@ def gate_inputs(y: np.ndarray, sr: int, config: dict, scorer=None) -> dict:
     y_std = librosa.resample(np.asarray(y, dtype=np.float32), orig_sr=sr, target_sr=target_sr) \
         if sr != target_sr else y
     inputs.update(mfcc_means(y_std, target_sr, config["n_mfcc"]))
-    if scorer is not None:
-        inputs.update(scorer(y, sr))
     return inputs
 
 
@@ -96,10 +82,9 @@ class GateModel:
     def _precheck(self, quality: dict) -> dict | None:
         """The hard rules every model applies first. Returns a FAIL result or None."""
         c = self.config
-        if quality["duration_s"] < c["min_duration_s"]:
-            return _result(FAIL, 0.0, "too_short")
-        if quality["duration_s"] > c["max_duration_s"]:
-            return _result(FAIL, 0.0, "too_long")
+        reason = duration_reason(quality["duration_s"], c["min_duration_s"], c["max_duration_s"])
+        if reason != "ok":
+            return _result(FAIL, 0.0, reason)
         if quality["clipping_pct"] > c["max_clipping_pct"]:
             return _result(FAIL, 0.0, "clipped")
         if quality["voice_activity_pct"] < c["min_voice_activity_pct"]:
@@ -116,7 +101,7 @@ class GateModel:
 # --- comp1-A: the existing rule -----------------------------------------------------
 
 class Comp1A_RuleBased(GateModel):
-    """PASS if the SNR/HNR estimate >= reliable_db (same rule as quality_gate.check_quality)."""
+    """PASS if the SNR/HNR estimate >= reliable_db (the original 10 dB rule from the robustness study)."""
 
     name = "comp1-A"
 
@@ -204,52 +189,15 @@ class Comp1B_ClassicalML(_TrainableGate):
         return Pipeline([("scaler", StandardScaler()), ("clf", model)])
 
 
-# --- comp1-C: pretrained DNSMOS + logistic regression -----------------------------
-
-class Comp1C_Deep(_TrainableGate):
-    """DNSMOS SIG/BAK/OVRL (pretrained deep model) -> logistic regression on our labels."""
-
-    name = "comp1-C"
-
-    def __init__(self, config: dict):
-        if not dnsmos.is_available(resolve_path(config, "dnsmos_model")):
-            raise GateModelUnavailable(
-                "comp1-C needs `pip install onnxruntime` and the DNSMOS model at "
-                f"{resolve_path(config, 'dnsmos_model')} (see models/dnsmos/README.md).")
-        super().__init__(config)
-
-    def feature_columns(self) -> list[str]:
-        return list(dnsmos.SCORE_KEYS)
-
-    def _make_classifier(self):
-        return Pipeline([("scaler", StandardScaler()),
-                         ("clf", LogisticRegression(max_iter=1000, class_weight="balanced",
-                                                    random_state=self.config["seed"]))])
-
-
-# --- Factory, availability, save / load -------------------------------------------
+# --- Factory, save / load -------------------------------------------
 
 def get_gate_model(name: str, config: dict) -> GateModel:
-    """New (untrained) gate model by name. Raises GateModelUnavailable for a missing optional one."""
+    """New (untrained) gate model by name. Raises ValueError for an unknown name."""
     if name == "comp1-A":
         return Comp1A_RuleBased(config)
     if name.startswith("comp1-B-"):
         return Comp1B_ClassicalML(config, classifier=name.removeprefix("comp1-B-"))
-    if name == "comp1-C":
-        return Comp1C_Deep(config)
     raise ValueError(f"Unknown gate model {name!r}; choose from {GATE_NAMES}")
-
-
-def available_gate_models(config: dict) -> list[str]:
-    """Names of the gate models whose dependencies are present."""
-    names = []
-    for name in GATE_NAMES:
-        try:
-            get_gate_model(name, config)
-            names.append(name)
-        except GateModelUnavailable:
-            pass
-    return names
 
 
 def gate_model_path(name: str, config: dict) -> Path:
@@ -257,7 +205,7 @@ def gate_model_path(name: str, config: dict) -> Path:
 
 
 def save_gate_model(model: GateModel, config: dict) -> Path:
-    """Save a trained comp1-B / comp1-C model to models/component1_gate_<name>.joblib."""
+    """Save a trained comp1-B model to models/component1_gate_<name>.joblib."""
     if model.name not in TRAINABLE:
         raise ValueError(f"{model.name} is rule-based; there is nothing to save")
     path = gate_model_path(model.name, config)

@@ -33,7 +33,7 @@ from component1_robustness.config import resolve_path
 from component1_robustness.enhancement import enhance
 from component1_robustness.features_check import compare_features, phonation_features
 from component1_robustness.gate_models import (
-    FAIL, PASS, gate_inputs, load_gate_model, make_dnsmos_scorer,
+    FAIL, PASS, gate_inputs, load_gate_model,
 )
 from component1_robustness.quality_metrics import check_duration
 from component1_robustness.visualise import plot_spectrograms, plot_waveforms
@@ -104,15 +104,19 @@ def make_clip_id(audio_path: str | Path, input_sha256: str) -> str:
     return f"{Path(audio_path).stem}_{input_sha256[:8]}"
 
 
-def load_standardised(audio_path: str | Path, sample_rate: int) -> np.ndarray:
-    """Any format -> mono float32 at sample_rate. Deletes the temporary WAV if one was made."""
+def load_standardised(audio_path: str | Path) -> tuple[np.ndarray, int]:
+    """Any format -> mono float32 at the recording's OWN sample rate. Returns (y, sr).
+
+    No resampling: Component 2's ZCR and pitch features depend on sample rate, so
+    resampling here changed its predictions. Deletes the temporary WAV if one was made.
+    """
     wav_path = ensure_wav(str(audio_path))
     try:
-        y, _ = librosa.load(wav_path, sr=sample_rate, mono=True)
+        y, sr = librosa.load(wav_path, sr=None, mono=True)
     finally:
         if os.path.abspath(wav_path) != os.path.abspath(str(audio_path)):
             os.remove(wav_path)
-    return y
+    return y, sr
 
 
 def json_safe(value):
@@ -143,17 +147,15 @@ def user_message(reason: str, config: dict) -> str:
 
 # --- The pipeline ------------------------------------------------------------------
 
-def run_gate(audio_path: str | Path, task: str, config: dict, gate=None, scorer="auto") -> dict:
+def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict:
     """Run Component 1 on one recording; write the output folder and return the report dict.
 
-    gate / scorer can be passed in to reuse them across many clips; by default the
-    gate is config["gate_model"] and DNSMOS is used when available.
+    gate can be passed in to reuse it across many clips; by default it is
+    config["gate_model"].
     """
     if task not in TASKS:
         raise ValueError(f"task must be one of {list(TASKS)}, got {task!r}")
     gate = gate or load_gate_model(config["gate_model"], config)
-    scorer = make_dnsmos_scorer(config) if scorer == "auto" else scorer
-    sr = config["sample_rate"]
 
     input_sha256 = sha256_file(audio_path)
     clip_id = make_clip_id(audio_path, input_sha256)
@@ -161,7 +163,7 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None, scorer=
     out_dir.mkdir(parents=True, exist_ok=True)
     raw_path, enhanced_path = out_dir / "raw.wav", out_dir / "enhanced.wav"
 
-    y_raw = load_standardised(audio_path, sr)
+    y_raw, sr = load_standardised(audio_path)   # native sample rate, no resampling
     sf.write(raw_path, y_raw, sr, subtype=WAV_SUBTYPE)
 
     report = {
@@ -181,13 +183,13 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None, scorer=
         write_report(report, out_dir / "report.json")
         return json_safe(report)
 
-    quality_before = gate_inputs(y_raw, sr, config, scorer)
+    quality_before = gate_inputs(y_raw, sr, config)
     features_before = phonation_features(y_raw, sr)
 
     y_enh = enhance(y_raw, sr, config["enhancement_method"], config["seed"])
     sf.write(enhanced_path, y_enh, sr, subtype=WAV_SUBTYPE)
 
-    quality_after = gate_inputs(y_enh, sr, config, scorer)
+    quality_after = gate_inputs(y_enh, sr, config)
     features_after = phonation_features(y_enh, sr)
     preservation = compare_features(features_before, features_after, config["feature_tolerances"])
 
@@ -195,12 +197,10 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None, scorer=
     judged = quality_after if use_enhanced else quality_before
     decision = gate.predict(judged)
 
-    plot_waveforms(y_raw, y_enh, sr, out_dir / "waveform.png",
-                   before=(quality_before["estimated_snr_db"], quality_before["method"]),
-                   after=(quality_after["estimated_snr_db"], quality_after["method"]))
-    plot_spectrograms(y_raw, y_enh, sr, out_dir / "spectrogram.png",
-                      before=(quality_before["estimated_snr_db"], quality_before["method"]),
-                      after=(quality_after["estimated_snr_db"], quality_after["method"]))
+    before = (quality_before["estimated_snr_db"], quality_before["method"])
+    after = (quality_after["estimated_snr_db"], quality_after["method"])
+    plot_waveforms(y_raw, y_enh, sr, out_dir / "waveform.png", before=before, after=after)
+    plot_spectrograms(y_raw, y_enh, sr, out_dir / "spectrogram.png", before=before, after=after)
 
     report.update(
         decision=decision["decision"], quality_score=decision["quality_score"], reason=decision["reason"],

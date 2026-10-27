@@ -18,4 +18,3 @@ pytest
 pyyaml
 jsonschema
 httpx  # needed by fastapi.testclient in the API tests
-onnxruntime  # optional: gate comp1-C (DNSMOS); comp1-A/B work without it

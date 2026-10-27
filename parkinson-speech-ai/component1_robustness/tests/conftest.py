@@ -37,27 +37,9 @@ def make_tone():
 
 
 @pytest.fixture
-def make_noise():
-    """Factory: seeded white Gaussian noise of given duration and RMS."""
-
-    def _make(duration_s: float = TEST_DURATION_S, rms: float = 0.05,
-              sr: int = TEST_SR, seed: int = TEST_SEED) -> np.ndarray:
-        rng = np.random.default_rng(seed)
-        return rms * rng.standard_normal(int(duration_s * sr))
-
-    return _make
-
-
-@pytest.fixture
 def tone(make_tone) -> np.ndarray:
     """Default 150 Hz, 5 s, 0.5-amplitude tone (vowel-like F0)."""
     return make_tone()
-
-
-@pytest.fixture
-def noise(make_noise) -> np.ndarray:
-    """Default 5 s seeded white noise at RMS 0.05."""
-    return make_noise()
 
 
 def make_vowel(f0_hz: float = 150.0, duration_s: float = TEST_DURATION_S,

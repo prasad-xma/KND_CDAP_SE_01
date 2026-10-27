@@ -23,8 +23,8 @@ def test_demo_clips_exist():
 def test_demo_prints_both_decisions(cfg, capsys):
     assert demo.main(["--skip-tests"]) == 0
     out = capsys.readouterr().out
-    assert "Decision : PASS" in out and "component2" in out
-    assert "Decision : FAIL  (reason: low_snr" in out and "nothing forwarded" in out
+    assert "Decision      : PASS" in out and "component2" in out
+    assert "Decision      : FAIL (low_snr)" in out and "Forwarding    : nothing" in out
     assert "Benchmark: not run yet" in out
 
 

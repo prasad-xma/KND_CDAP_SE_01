@@ -42,9 +42,8 @@ from scipy.stats import binomtest  # noqa: E402
 from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold  # noqa: E402
 
 from component1_robustness.config import DEFAULT_CONFIG_PATH, load_config, resolve_path  # noqa: E402
-from component1_robustness.dnsmos import SCORE_KEYS  # noqa: E402
 from component1_robustness.gate_models import (  # noqa: E402
-    PASS, TRAINABLE, GateModelUnavailable, get_gate_model, make_dnsmos_scorer, mfcc_means, save_gate_model,
+    PASS, TRAINABLE, get_gate_model, mfcc_means, save_gate_model,
 )
 from component1_robustness.labels import LABELS_CSV_NAME, NO_PREDICTION, RELIABLE  # noqa: E402
 from component1_robustness.pipeline import json_safe  # noqa: E402
@@ -53,8 +52,8 @@ from component1_robustness.quality_metrics import compute_quality  # noqa: E402
 METRICS = ["accuracy", "precision", "recall", "f1", "false_accept_rate", "false_reject_rate",
            "roc_auc", "downstream_accuracy", "pass_rate"]
 LOWER_IS_BETTER = {"false_accept_rate", "false_reject_rate", "speed"}
-COMPLEXITY = {"comp1-A": 0, "comp1-B-logreg": 1, "comp1-B-svm": 2, "comp1-B-rf": 3, "comp1-C": 4}
-INPUT_COST_TIER = {"comp1-A": 1, "comp1-B-logreg": 2, "comp1-B-svm": 2, "comp1-B-rf": 2, "comp1-C": 3}
+COMPLEXITY = {"comp1-A": 0, "comp1-B-logreg": 1, "comp1-B-svm": 2, "comp1-B-rf": 3}
+INPUT_COST_TIER = {"comp1-A": 1, "comp1-B-logreg": 2, "comp1-B-svm": 2, "comp1-B-rf": 2}
 SNR_CONDITIONS = [("clean", "clean"), ("noise_snr_10db", "10"), ("noise_snr_5db", "5"),
                   ("noise_snr_0db", "0"), ("noise_snr_-5db", "-5")]
 
@@ -83,6 +82,18 @@ def _ratio(num: int, den: int) -> float:
     return num / den if den else float("nan")
 
 
+def _count_metrics(tp: int, fn: int, fp: int, tn: int) -> dict[str, float]:
+    """Confusion-matrix metrics. Positive class = unreliable."""
+    return {
+        "accuracy": _ratio(tp + tn, tp + fn + fp + tn),
+        "precision": _ratio(tp, tp + fp),
+        "recall": _ratio(tp, tp + fn),
+        "f1": _ratio(2 * tp, 2 * tp + fp + fn),
+        "false_accept_rate": _ratio(fn, fn + tp),
+        "false_reject_rate": _ratio(fp, fp + tn),
+    }
+
+
 def gate_metrics(reliable, passed, score, c2_correct) -> dict[str, float]:
     """All gate metrics for one set of predictions. Positive class = unreliable."""
     reliable, passed = np.asarray(reliable, bool), np.asarray(passed, bool)
@@ -93,12 +104,7 @@ def gate_metrics(reliable, passed, score, c2_correct) -> dict[str, float]:
     fp = int((reliable & failed).sum())     # reliable, rejected (false reject)
     tn = int((reliable & passed).sum())     # reliable, passed
     return {
-        "accuracy": _ratio(tp + tn, len(reliable)),
-        "precision": _ratio(tp, tp + fp),
-        "recall": _ratio(tp, tp + fn),
-        "f1": _ratio(2 * tp, 2 * tp + fp + fn),
-        "false_accept_rate": _ratio(fn, fn + tp),
-        "false_reject_rate": _ratio(fp, fp + tn),
+        **_count_metrics(tp, fn, fp, tn),
         "roc_auc": auc_reliable(reliable, score),
         "downstream_accuracy": _ratio(int(c2_correct[passed].sum()), int(passed.sum())),
         "pass_rate": _ratio(int(passed.sum()), len(passed)),
@@ -169,19 +175,10 @@ def _metrics_for(table: pd.DataFrame, index, passed, score) -> dict:
     return gate_metrics(rows["reliable"], passed, score, rows["c2_correct"])
 
 
-def available_models(table: pd.DataFrame, config: dict, names: list[str]) -> tuple[list[str], dict]:
-    """Models that can run on this table; skipped ones with the reason."""
-    usable, skipped = [], {}
-    for name in names:
-        if name == "comp1-C" and not set(SCORE_KEYS) <= set(table.columns):
-            skipped[name] = "label table has no DNSMOS columns (rebuild labels with onnxruntime installed)"
-            continue
-        try:
-            get_gate_model(name, config)
-            usable.append(name)
-        except GateModelUnavailable as exc:
-            skipped[name] = str(exc)
-    return usable, skipped
+def _fit(name: str, config: dict, table: pd.DataFrame, index):
+    """A new gate model of this name, trained on the given rows."""
+    return get_gate_model(name, config).fit(table.loc[index], table.loc[index, "label"],
+                                            table.loc[index, "participant_id"])
 
 
 def evaluate_model(name, table, dev_index, test_index, folds, config) -> dict:
@@ -189,14 +186,12 @@ def evaluate_model(name, table, dev_index, test_index, folds, config) -> dict:
     cfg = _eval_config(config)
     fold_metrics, oof, predict_times = [], [], []
     for train_idx, val_idx in folds:
-        model = get_gate_model(name, cfg).fit(table.loc[train_idx], table.loc[train_idx, "label"],
-                                              table.loc[train_idx, "participant_id"])
+        model = _fit(name, cfg, table, train_idx)
         passed, score, seconds = _predict_rows(model, table.loc[val_idx])
         fold_metrics.append(_metrics_for(table, val_idx, passed, score))
         oof.append(pd.DataFrame({"row": val_idx, "passed": passed, "score": score}))
         predict_times.append(seconds)
-    final = get_gate_model(name, cfg).fit(table.loc[dev_index], table.loc[dev_index, "label"],
-                                          table.loc[dev_index, "participant_id"])
+    final = _fit(name, cfg, table, dev_index)
     test_passed, test_score, seconds = _predict_rows(final, table.loc[test_index])
     predict_times.append(seconds)
     return {
@@ -216,16 +211,13 @@ def old_label_comparison(table: pd.DataFrame, config: dict) -> dict:
 
 
 def previous_run_metrics(config: dict) -> dict | None:
-    """The previous validate_quality_gate.py result (e.g. 59.4% accuracy), if its file exists."""
+    """The old per-condition validation result (e.g. 59.4% accuracy), if its file exists."""
     path = resolve_path(config, "results") / config["benchmark"]["previous_metrics_file"]
     if not path.is_file():
         return None
     old = json.loads(path.read_text(encoding="utf-8"))
     (tp, fn), (fp, tn) = old["confusion_matrix"]   # rows = truth [unreliable, reliable], cols = predicted
-    return {"accuracy": old["accuracy"], "precision": old["precision_unreliable"],
-            "recall": old["recall_unreliable"], "f1": _ratio(2 * tp, 2 * tp + fp + fn),
-            "false_accept_rate": _ratio(fn, fn + tp), "false_reject_rate": _ratio(fp, fp + tn),
-            "n_evaluations": old["n_evaluations"]}
+    return {**_count_metrics(tp, fn, fp, tn), "n_evaluations": old["n_evaluations"]}
 
 
 # --- Selection ---------------------------------------------------------------------------------
@@ -324,10 +316,8 @@ def measure_input_cost(config: dict) -> dict[str, float]:
 
     quality = clock(lambda: compute_quality(y, sr))
     mfcc = clock(lambda: mfcc_means(y, sr, config["n_mfcc"]))
-    scorer = make_dnsmos_scorer(config)
-    dnsmos_s = clock(lambda: scorer(y, sr)) if scorer else float("nan")
     return {"comp1-A": quality, "comp1-B-logreg": quality + mfcc, "comp1-B-svm": quality + mfcc,
-            "comp1-B-rf": quality + mfcc, "comp1-C": quality + mfcc + dnsmos_s}
+            "comp1-B-rf": quality + mfcc}
 
 
 # --- Main entry ----------------------------------------------------------------------------------
@@ -339,12 +329,10 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
     table = load_labels(config)
     if table is None:
         return None
-    names, skipped = available_models(table, config, model_names or config["benchmark"]["models"])
+    names = list(model_names or config["benchmark"]["models"])
     dev_index, test_index, folds = make_splits(table, config)
     print(f"{len(table)} rows, {table['participant_id'].nunique()} participants; "
           f"{len(folds)} folds; test set {len(test_index)} rows")
-    for name, why in skipped.items():
-        print(f"  skipped {name}: {why}")
 
     results = {name: evaluate_model(name, table, dev_index, test_index, folds, config) for name in names}
     summary = {name: res["folds"][METRICS].mean().to_dict() for name, res in results.items()}
@@ -360,7 +348,7 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
     print("\n" + bench_df[["model", "label_source", "accuracy_mean", "f1_mean", "false_accept_rate_mean",
                            "false_reject_rate_mean", "downstream_accuracy_mean"]].to_string(index=False))
 
-    out = {"benchmark": bench_df, "results": results, "summary": summary, "skipped": skipped,
+    out = {"benchmark": bench_df, "results": results, "summary": summary,
            "no_gate_downstream_accuracy": float(table["c2_correct"].mean())}
 
     if select and summary:
@@ -397,7 +385,7 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
                 "mcnemar_top_two": out["mcnemar"],
                 "comp1A_old_labels_same_data": old_same_data, "comp1A_previous_run": previous,
                 "no_gate_downstream_accuracy": out["no_gate_downstream_accuracy"],
-                "skipped_models": skipped, "n_rows": int(len(table)),
+                "n_rows": int(len(table)),
                 "n_participants": int(table["participant_id"].nunique()),
                 "config_version": str(config["config_version"]),
             }

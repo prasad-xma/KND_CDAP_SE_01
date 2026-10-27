@@ -22,8 +22,7 @@ import tempfile
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from component1_robustness.config import load_config, resolve_path
-from component1_robustness.dnsmos import is_available as dnsmos_available
+from component1_robustness.config import load_config
 from component1_robustness.pipeline import TASKS, run_gate
 
 ALLOWED_EXTENSIONS = (".wav", ".m4a", ".mp3")
@@ -52,7 +51,6 @@ def health(config: dict = Depends(get_config)):
         "component": "quality_gate",
         "gate_model": config["gate_model"],
         "enhancement_method": config["enhancement_method"],
-        "dnsmos_available": dnsmos_available(resolve_path(config, "dnsmos_model")),
         "config_version": str(config["config_version"]),
     }
 

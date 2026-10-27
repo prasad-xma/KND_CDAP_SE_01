@@ -1,27 +1,21 @@
 """Sanity tests for every available gate model, on synthetic audio only."""
 
-import dataclasses
-
 import numpy as np
 import pandas as pd
 import pytest
-import soundfile as sf
 
-from component1_robustness import gate_models
 from component1_robustness.config import load_config
 from component1_robustness.gate_models import (
-    FAIL, GATE_NAMES, PASS, TRAINABLE, Comp1A_RuleBased, GateModelUnavailable,
-    available_gate_models, gate_inputs, get_gate_model, load_gate_model, make_dnsmos_scorer,
+    FAIL, GATE_NAMES, PASS, TRAINABLE, Comp1A_RuleBased, gate_inputs, get_gate_model, load_gate_model,
     save_gate_model,
 )
-from component1_robustness.quality_gate import check_quality
 
 from conftest import make_vowel
 
 SR = 16000
 CONFIG = load_config()
-AVAILABLE = available_gate_models(CONFIG)
-TRAINABLE_AVAILABLE = [n for n in AVAILABLE if n in TRAINABLE]
+AVAILABLE = list(GATE_NAMES)
+TRAINABLE_AVAILABLE = list(TRAINABLE)
 
 
 def _noisy(y: np.ndarray, snr_db: float, seed: int) -> np.ndarray:
@@ -40,12 +34,7 @@ def _wobbly_vowel(f0: float, seed: int, duration_s: float = 5.0) -> np.ndarray:
 # --- Synthetic training set and trained models (built once) -----------------------
 
 @pytest.fixture(scope="module")
-def scorer():
-    return make_dnsmos_scorer(CONFIG)
-
-
-@pytest.fixture(scope="module")
-def training_set(scorer) -> tuple[pd.DataFrame, list[str]]:
+def training_set() -> tuple[pd.DataFrame, list[str]]:
     rows, labels = [], []
     for i, f0 in enumerate([100, 120, 140, 170, 200, 230]):
         clean = _wobbly_vowel(f0, seed=i)
@@ -53,7 +42,7 @@ def training_set(scorer) -> tuple[pd.DataFrame, list[str]]:
                          (_noisy(clean, 25, 200 + i), "reliable"),
                          (_noisy(clean, 0, 300 + i), "unreliable"), (_noisy(clean, -5, 400 + i), "unreliable"),
                          (0.1 * np.random.default_rng(500 + i).standard_normal(len(clean)), "unreliable")]:
-            rows.append(gate_inputs(y, SR, CONFIG, scorer))
+            rows.append(gate_inputs(y, SR, CONFIG))
             labels.append(label)
     return pd.DataFrame(rows), labels
 
@@ -68,53 +57,53 @@ def trained(training_set) -> dict:
     return models
 
 
-def _inputs(y, scorer):
-    return gate_inputs(y, SR, CONFIG, scorer)
+def _inputs(y):
+    return gate_inputs(y, SR, CONFIG)
 
 
 # --- Sanity checks on every available model ---------------------------------------
 
 @pytest.mark.parametrize("name", AVAILABLE)
-def test_clean_vowel_passes(name, trained, scorer):
-    result = trained[name].predict(_inputs(_wobbly_vowel(155, seed=99), scorer))
+def test_clean_vowel_passes(name, trained):
+    result = trained[name].predict(_inputs(_wobbly_vowel(155, seed=99)))
     assert result["decision"] == PASS and result["reason"] == "ok"
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-def test_white_noise_only_fails(name, trained, scorer):
+def test_white_noise_only_fails(name, trained):
     noise = 0.1 * np.random.default_rng(999).standard_normal(SR * 5)
-    assert trained[name].predict(_inputs(noise, scorer))["decision"] == FAIL
+    assert trained[name].predict(_inputs(noise))["decision"] == FAIL
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-def test_silence_fails(name, trained, scorer):
-    result = trained[name].predict(_inputs(np.zeros(SR * 5), scorer))
+def test_silence_fails(name, trained):
+    result = trained[name].predict(_inputs(np.zeros(SR * 5)))
     assert result == {"decision": FAIL, "quality_score": 0.0, "reason": "no_voice"}
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
 @pytest.mark.parametrize("seconds,reason", [(2.9, "too_short"), (15.1, "too_long")])
-def test_duration_rule(name, seconds, reason, trained, scorer):
-    result = trained[name].predict(_inputs(make_vowel(duration_s=seconds), scorer))
+def test_duration_rule(name, seconds, reason, trained):
+    result = trained[name].predict(_inputs(make_vowel(duration_s=seconds)))
     assert result == {"decision": FAIL, "quality_score": 0.0, "reason": reason}
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
 @pytest.mark.parametrize("seconds", [3.0, 15.0])
-def test_duration_limits_inclusive(name, seconds, trained, scorer):
-    assert trained[name].predict(_inputs(_wobbly_vowel(155, 98, seconds), scorer))["reason"] not in {"too_short", "too_long"}
+def test_duration_limits_inclusive(name, seconds, trained):
+    assert trained[name].predict(_inputs(_wobbly_vowel(155, 98, seconds)))["reason"] not in {"too_short", "too_long"}
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-def test_clipped_clip_fails(name, trained, scorer):
+def test_clipped_clip_fails(name, trained):
     clipped = np.clip(4.0 * make_vowel(), -1.0, 1.0)   # peak 2.0 before clipping
-    result = trained[name].predict(_inputs(clipped, scorer))
+    result = trained[name].predict(_inputs(clipped))
     assert result == {"decision": FAIL, "quality_score": 0.0, "reason": "clipped"}
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-def test_output_format(name, trained, scorer):
-    result = trained[name].predict(_inputs(_noisy(_wobbly_vowel(155, 97), 10, 7), scorer))
+def test_output_format(name, trained):
+    result = trained[name].predict(_inputs(_noisy(_wobbly_vowel(155, 97), 10, 7)))
     assert set(result) == {"decision", "quality_score", "reason"}
     assert result["decision"] in {PASS, FAIL}
     assert 0.0 <= result["quality_score"] <= 100.0
@@ -122,17 +111,17 @@ def test_output_format(name, trained, scorer):
 
 
 @pytest.mark.parametrize("name", TRAINABLE_AVAILABLE)
-def test_same_seed_identical_predictions(name, training_set, scorer):
+def test_same_seed_identical_predictions(name, training_set):
     X, y = training_set
     a, b = get_gate_model(name, CONFIG).fit(X, y), get_gate_model(name, CONFIG).fit(X, y)
-    probes = [_inputs(_noisy(_wobbly_vowel(160, 90 + k), snr, k), scorer) for k, snr in enumerate([20, 10, 3])]
+    probes = [_inputs(_noisy(_wobbly_vowel(160, 90 + k), snr, k)) for k, snr in enumerate([20, 10, 3])]
     assert [a.predict(q) for q in probes] == [b.predict(q) for q in probes]
 
 
 @pytest.mark.parametrize("name", TRAINABLE_AVAILABLE)
-def test_predict_before_fit_raises(name, scorer):
+def test_predict_before_fit_raises(name):
     with pytest.raises(RuntimeError):
-        get_gate_model(name, CONFIG).predict(_inputs(_wobbly_vowel(155, 99), scorer))
+        get_gate_model(name, CONFIG).predict(_inputs(_wobbly_vowel(155, 99)))
 
 
 # --- comp1-A specifics -------------------------------------------------------------
@@ -156,18 +145,6 @@ def test_comp1a_low_snr_reason():
     assert Comp1A_RuleBased(CONFIG).predict(q)["reason"] == "low_snr"
 
 
-@pytest.mark.parametrize("snr_db", [40, 15, 8, 0])
-def test_comp1a_agrees_with_old_check_quality(tmp_path, snr_db):
-    """Same rule as quality_gate.check_quality (once the hard rules pass)."""
-    y = _noisy(_wobbly_vowel(150, 7), snr_db, 3)
-    y = 0.9 * y / np.max(np.abs(y))
-    path = tmp_path / "clip.wav"
-    sf.write(path, y, SR)
-    loaded, _ = sf.read(path)
-    decision = Comp1A_RuleBased(CONFIG).predict(gate_inputs(loaded, SR, CONFIG))["decision"]
-    assert (decision == PASS) == check_quality(str(path)).passed
-
-
 # --- Factory, availability, save / load ----------------------------------------------
 
 def test_comp1a_and_b_always_available():
@@ -183,17 +160,8 @@ def test_config_default_gate_is_known():
     assert CONFIG["gate_model"] in GATE_NAMES
 
 
-def test_comp1c_skips_cleanly_without_model_file(tmp_path):
-    cfg = dict(CONFIG, paths=dict(CONFIG["paths"], dnsmos_model=str(tmp_path / "missing.onnx")))
-    with pytest.raises(GateModelUnavailable):
-        get_gate_model("comp1-C", cfg)
-    assert "comp1-C" not in available_gate_models(cfg)
-    assert gate_models.make_dnsmos_scorer(cfg) is None
-
-
-def test_gate_inputs_without_dnsmos_has_no_dnsmos_keys():
-    q = gate_inputs(make_vowel(), SR, CONFIG, scorer=None)
-    assert not any(k.startswith("dnsmos_") for k in q)
+def test_gate_inputs_has_mfcc_means():
+    q = gate_inputs(make_vowel(), SR, CONFIG)
     assert sum(k.startswith("mfcc_mean_") for k in q) == CONFIG["n_mfcc"]
 
 
@@ -207,12 +175,12 @@ def test_gate_inputs_resamples_for_mfcc():
 
 
 @pytest.mark.parametrize("name", TRAINABLE_AVAILABLE)
-def test_save_and_load_roundtrip(name, trained, scorer, tmp_path):
+def test_save_and_load_roundtrip(name, trained, tmp_path):
     cfg = dict(CONFIG, paths=dict(CONFIG["paths"], models=str(tmp_path)))
     path = save_gate_model(trained[name], cfg)
     assert path.name == f"component1_gate_{name}.joblib"
     loaded = load_gate_model(name, cfg)
-    q = _inputs(_noisy(_wobbly_vowel(165, 80), 12, 8), scorer)
+    q = _inputs(_noisy(_wobbly_vowel(165, 80), 12, 8))
     assert loaded.predict(q) == trained[name].predict(q)
 
 

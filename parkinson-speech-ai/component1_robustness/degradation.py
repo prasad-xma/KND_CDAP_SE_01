@@ -3,9 +3,8 @@
 No external noise/RIR corpora are bundled here — degradations are generated
 programmatically so the experiment needs no extra downloads. This is a
 reasonable phase-1 proxy, not a substitute for real recorded noise/RIRs:
-    - "noise" is synthesized (white / pink / babble-via-mixing), not real
-      recorded traffic/fan/crowd audio. add_noise_from_file() is the hook
-      for real recorded noise (e.g. MUSAN) later.
+    - "noise" is synthesized white noise, not real
+      recorded traffic/fan/crowd audio.
     - "reverb" is convolution with a synthetic exponential-decay impulse
       response, not a measured room impulse response (RIR).
     - "compression" is simulated via low-pass filtering + bit-depth
@@ -37,46 +36,10 @@ def _scale_to_snr(y: np.ndarray, noise: np.ndarray, snr_db: float) -> np.ndarray
     return noise * (target_noise_rms / _rms(noise))
 
 
-def _fit_length(noise: np.ndarray, n: int, rng: np.random.Generator) -> np.ndarray:
-    """Return exactly n samples of noise: tile if too short, random crop if too long."""
-    if len(noise) < n:
-        reps = int(np.ceil(n / len(noise)))
-        noise = np.tile(noise, reps)
-    start = int(rng.integers(0, len(noise) - n + 1))
-    return noise[start:start + n]
-
-
 def add_white_noise(y: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
     """Add Gaussian white noise at the given SNR (dB)."""
     noise = rng.standard_normal(len(y))
     return y + _scale_to_snr(y, noise, snr_db)
-
-
-def add_pink_noise(y: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
-    """Add pink-ish (1/f) noise — a rough proxy for steady hum/fan noise."""
-    white = rng.standard_normal(len(y))
-    pink = np.cumsum(white)          # integrating white noise tilts the spectrum down
-    pink = pink - np.mean(pink)
-    return y + _scale_to_snr(y, pink, snr_db)
-
-
-def add_babble_noise(y: np.ndarray, babble_source: np.ndarray, snr_db: float,
-                     rng: np.random.Generator) -> np.ndarray:
-    """Mix in another speech recording at a fixed SNR as a babble-noise proxy."""
-    babble = _fit_length(babble_source, len(y), rng)
-    return y + _scale_to_snr(y, babble, snr_db)
-
-
-def add_noise_from_file(y: np.ndarray, noise: np.ndarray, snr_db: float,
-                        rng: np.random.Generator) -> np.ndarray:
-    """Add a real recorded noise signal (e.g. a MUSAN clip, already loaded) at snr_db.
-
-    The noise is tiled if shorter than y, or a random segment is taken if longer.
-    """
-    if len(noise) == 0:
-        raise ValueError("noise signal is empty")
-    segment = _fit_length(np.asarray(noise, dtype=np.float64), len(y), rng)
-    return y + _scale_to_snr(y, segment, snr_db)
 
 
 def add_synthetic_reverb(y: np.ndarray, sr: int, rt60_sec: float,

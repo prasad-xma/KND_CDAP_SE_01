@@ -15,7 +15,7 @@ MODULES = sorted(
 
 
 def test_module_list_not_empty():
-    assert "component1_robustness.quality_gate" in MODULES
+    assert "component1_robustness.pipeline" in MODULES
 
 
 @pytest.mark.parametrize("module_name", MODULES)

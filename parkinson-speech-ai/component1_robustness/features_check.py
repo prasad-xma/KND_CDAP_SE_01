@@ -8,12 +8,16 @@ import math
 import os
 import tempfile
 
+import joblib
 import numpy as np
+import pandas as pd
 import soundfile as sf
 
+from component1_robustness.config import resolve_path
 from component2_phonation.features import extract_phonation_features
 
 EPS = 1e-12
+NO_PREDICTION = -1   # Component 2 found no voiced frames
 
 
 def phonation_features(y: np.ndarray, sr: int) -> dict[str, float] | None:
@@ -62,3 +66,17 @@ def compare_features(before: dict[str, float] | None, after: dict[str, float] | 
         if math.isnan(diff) or diff > tolerance:
             preserved = False
     return {"per_feature": per_feature, "preserved": preserved}
+
+
+def load_component2_model(config: dict) -> tuple[object, list[str]]:
+    """Component 2's model (config paths.component2_model) and the feature names it expects."""
+    bundle = joblib.load(resolve_path(config, "component2_model"))
+    return bundle["model"], bundle["feature_names"]
+
+
+def predict_component2(model, feature_names: list[str], feats: dict | None) -> tuple[int, float]:
+    """(prediction, P(PD)) from Component 2's model; (NO_PREDICTION, nan) if there are no features."""
+    if feats is None:
+        return NO_PREDICTION, math.nan
+    X = pd.DataFrame([feats])[feature_names]
+    return int(model.predict(X)[0]), float(model.predict_proba(X)[0][1])

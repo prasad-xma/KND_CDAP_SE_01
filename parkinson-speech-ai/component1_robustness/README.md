@@ -34,7 +34,7 @@ uvicorn component1_robustness.api:app --reload --host 0.0.0.0 --port 8001
 |---|---|---|
 | Load | `common/audio_io.py`, `pipeline.py` | any format → mono WAV at 16 kHz |
 | Duration check | `quality_metrics.check_duration` | outside 3–15 s → FAIL now, nothing else runs |
-| Quality before | `gate_models.gate_inputs` | SNR or HNR, level, clipping, voice activity, MFCC means (+ DNSMOS if installed) |
+| Quality before | `gate_models.gate_inputs` | SNR or HNR, level, clipping, voice activity, MFCC means |
 | Features before | `features_check.phonation_features` | Component 2's own 10 features (its code, not a copy) |
 | Enhance | `enhancement.enhance` | `noisereduce` (non-stationary / stationary), `wiener`, or `none` |
 | Quality / features after | as above | on the enhanced audio |
@@ -50,9 +50,8 @@ is forwarded.
 
 | Name | Model |
 |---|---|
-| `comp1-A` | Rule: SNR/HNR estimate ≥ 10 dB (the original `quality_gate.py` rule). |
+| `comp1-A` | Rule: SNR/HNR estimate ≥ 10 dB (the original rule, from the robustness study). |
 | `comp1-B-rf` / `-svm` / `-logreg` | Classical ML on quality metrics + MFCC means. |
-| `comp1-C` | DNSMOS P.835 (pretrained, non-intrusive, Microsoft, CC BY 4.0) + logistic regression. Optional: needs `onnxruntime`. |
 
 Training labels are **per clip** (`labels.py`): a degraded clip is
 "reliable" only if Component 2's prediction is unchanged from the clean clip
@@ -64,10 +63,10 @@ python -m component1_robustness.labels      # build results/component1_robustnes
 python -m component1_robustness.benchmark   # compare all gate models, pick one, write it to the config
 ```
 
-The older robustness study scripts still work:
+The robustness study scripts (they produced the evidence for the 10 dB
+threshold and the enhancement findings):
 `python -m component1_robustness.experiment`,
-`python -m component1_robustness.evaluate_enhancement`,
-`python -m component1_robustness.validate_quality_gate` (now runs the benchmark for comp1-A only).
+`python -m component1_robustness.evaluate_enhancement`.
 
 ## 3. Output
 
@@ -116,11 +115,10 @@ change, then review the JSON diff:
 
 ## Known limitations
 
-- **Synthetic degradations.** Noise is generated (white/pink, babble by mixing),
+- **Synthetic degradations.** Noise is generated white noise,
   reverb is a synthetic exponential-decay impulse response rather than a
   measured room, and "compression" is low-pass + requantisation rather than a
-  real codec. `degradation.add_noise_from_file` is ready for real recorded
-  noise (e.g. MUSAN).
+  real codec.
 - **No expert-labelled quality corpus.** No public PD dataset ships
   per-recording quality ratings, so "reliable" is defined by what happens to
   Component 2's prediction and biomarkers, not by human listeners.

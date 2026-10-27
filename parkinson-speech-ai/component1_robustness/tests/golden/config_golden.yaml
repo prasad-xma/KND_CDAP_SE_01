@@ -25,9 +25,9 @@ min_voice_activity_pct: 50.0  # PLACEHOLDER — calibrated in a later part
 
 # Enhancement and gate model
 enhancement_method: noisereduce_nonstationary
-gate_model: comp1-A           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg | comp1-C
+gate_model: comp1-A           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
 comp1a_score_span_db: 20.0    # comp1-A score: reliable_db -> 50, +/- this many dB -> 100 / 0
-gate_pass_probability: 0.5    # comp1-B / comp1-C: PASS when P(reliable) >= this
+gate_pass_probability: 0.5    # comp1-B: PASS when P(reliable) >= this
 n_mfcc: 13                    # MFCC means used by comp1-B
 
 # Max allowed relative change (|after - before| / |before|) for a
@@ -41,7 +41,7 @@ feature_tolerances:
 
 # Gate benchmark (component1_robustness/benchmark.py)
 benchmark:
-  models: [comp1-A, comp1-B-rf, comp1-B-svm, comp1-B-logreg, comp1-C]
+  models: [comp1-A, comp1-B-rf, comp1-B-svm, comp1-B-logreg]
   n_folds: 5                    # StratifiedGroupKFold by participant_id
   test_fraction: 0.2            # participants held out for the final test set
   apply_duration_rule: false    # AH clips are 1.7-5.5 s; the 3-15 s rule would reject
@@ -60,4 +60,3 @@ paths:
   outputs: outputs/component1
   raw_data: data/vowel_task/raw
   component2_model: models/component2_phonation_vowel_combined_rf.joblib
-  dnsmos_model: models/dnsmos/DISABLED_FOR_GOLDEN.onnx   # off: report keys must not depend on onnxruntime

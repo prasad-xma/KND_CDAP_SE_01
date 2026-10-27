@@ -1,12 +1,10 @@
 """Tests for enhancement.py, using synthetic signals only."""
 
-import noisereduce as nr
 import numpy as np
 import pytest
-import soundfile as sf
 
 from component1_robustness.config import load_config
-from component1_robustness.enhancement import METHODS, enhance, enhance_audio
+from component1_robustness.enhancement import METHODS, enhance
 
 SR = 16000
 SEED = load_config()["seed"]
@@ -131,25 +129,3 @@ def test_noise_ref_ignored_by_other_methods(method, noisy_vowel_5db, noise_only_
     b = enhance(noisy_vowel_5db, SR, method, SEED, noise_ref=noise_only_1s)
     np.testing.assert_array_equal(a, b)
 
-
-# --- Backward-compatible wrapper ---------------------------------------------
-
-@pytest.mark.parametrize("stationary", [False, True])
-def test_enhance_audio_matches_original_behaviour(tmp_path, noisy_vowel_5db, stationary):
-    """Old enhance_audio = float32 read + nr.reduce_noise; the wrapper must give the same array."""
-    path = tmp_path / "in.wav"
-    sf.write(path, noisy_vowel_5db / np.max(np.abs(noisy_vowel_5db)) * 0.9, SR)
-    y, _ = sf.read(path)
-    expected = nr.reduce_noise(y=y.astype(np.float32), sr=SR, stationary=stationary)
-
-    out, sr = enhance_audio(str(path), stationary=stationary)
-    assert sr == SR
-    np.testing.assert_array_equal(out, expected)
-
-
-def test_enhance_audio_writes_output(tmp_path, noisy_vowel_5db):
-    src, dst = tmp_path / "in.wav", tmp_path / "out.wav"
-    sf.write(src, noisy_vowel_5db / np.max(np.abs(noisy_vowel_5db)) * 0.9, SR)
-    out, _ = enhance_audio(str(src), output_path=str(dst))
-    written, sr = sf.read(dst)
-    assert sr == SR and len(written) == len(out)

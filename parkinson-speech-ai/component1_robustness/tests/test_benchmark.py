@@ -6,14 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from component1_robustness import benchmark, validate_quality_gate
+from component1_robustness import benchmark
 from component1_robustness.benchmark import (
     BENCHMARK_CSV, SELECTED_JSON, SNR_PNG, auc_reliable, gate_metrics, load_labels, make_splits,
     mcnemar, run_benchmark, select_model, write_gate_model_to_config,
 )
 from component1_robustness.conditions import CONDITIONS
 from component1_robustness.config import DEFAULT_CONFIG_PATH, load_config
-from component1_robustness.dnsmos import SCORE_KEYS
 from component1_robustness.labels import LABELS_CSV_NAME
 
 CONDITION_SNR = {"clean": 40, "noise_snr_10db": 14, "noise_snr_5db": 8, "noise_snr_0db": 3,
@@ -38,8 +37,6 @@ def fake_label_table(n_participants: int = 20, seed: int = 0) -> pd.DataFrame:
                 "duration_s": 4.0, "level_dbfs": -20 + rng.normal(0, 2), "clipping_pct": 0.0,
                 "voice_activity_pct": 90.0, "estimated_snr_db": snr, "method": "hnr",
                 **{f"mfcc_mean_{i + 1}": rng.normal(0, 1) + 0.05 * snr for i in range(13)},
-                "dnsmos_sig": 3 + 0.03 * snr + rng.normal(0, 0.2), "dnsmos_bak": 1.5 + 0.06 * snr + rng.normal(0, 0.2),
-                "dnsmos_ovrl": 2 + 0.04 * snr + rng.normal(0, 0.2),
                 "clean_prediction": truth, "degraded_prediction": pred,
                 "label": "reliable" if reliable else "unreliable",
             })
@@ -238,18 +235,3 @@ def test_missing_labels_message(tmp_path, capsys):
     assert "Label table not found" in capsys.readouterr().out
 
 
-def test_comp1c_skipped_without_dnsmos_columns(tmp_path):
-    cfg = _config(tmp_path)
-    path = tmp_path / "results" / LABELS_CSV_NAME
-    pd.read_csv(path).drop(columns=list(SCORE_KEYS)).to_csv(path, index=False)
-    out = run_benchmark(cfg, save_outputs=False, write_back=False)
-    assert "comp1-C" in out["skipped"] and "comp1-C" not in out["summary"]
-
-
-def test_old_wrapper_runs_comp1a_only_and_writes_nothing(tmp_path, capsys):
-    cfg = _config(tmp_path)
-    before = sorted(p.name for p in (tmp_path / "results").iterdir())
-    out = validate_quality_gate.main(cfg)
-    assert list(out["summary"]) == ["comp1-A"]
-    assert sorted(p.name for p in (tmp_path / "results").iterdir()) == before
-    assert "comp1-A" in capsys.readouterr().out

@@ -78,32 +78,17 @@ def _make_dataset(root):
     return raw
 
 
-def _config_for(root, raw, with_dnsmos: bool = False) -> dict:
-    """Test config pointing at the synthetic folder. DNSMOS off by default (it is the slow part)."""
+def _config_for(root, raw) -> dict:
+    """Test config pointing at the synthetic folder."""
     cfg = load_config()
     cfg["paths"] = dict(cfg["paths"], raw_data=str(raw), results=str(root / "results"),
                         component2_model=str(root / "model.joblib"))
-    if not with_dnsmos:
-        cfg["paths"]["dnsmos_model"] = str(root / "no_dnsmos.onnx")
     return cfg
 
 
 def test_table_has_mfcc_columns(built):
     _, table, _ = built
     assert sum(c.startswith("mfcc_mean_") for c in table.columns) == load_config()["n_mfcc"]
-
-
-def test_table_has_dnsmos_columns_when_available(tmp_path, monkeypatch):
-    from component1_robustness.config import resolve_path
-    from component1_robustness.dnsmos import SCORE_KEYS, is_available
-    if not is_available(resolve_path(load_config(), "dnsmos_model")):
-        pytest.skip("onnxruntime or DNSMOS model not installed")
-    monkeypatch.setattr(labels, "CONDITIONS", [c for c in CONDITIONS if c[0] in {"clean", "noise_snr_0db"}])
-    monkeypatch.setattr(labels, "GROUP_DIRS", {"PD_AH": "PD"})
-    table = build_label_table(_config_for(tmp_path, _make_dataset(tmp_path), with_dnsmos=True))
-    assert len(table) == 2 * 2   # 2 PD clips x 2 conditions
-    assert set(SCORE_KEYS) <= set(table.columns)
-    assert not table[list(SCORE_KEYS)].isna().any().any()
 
 
 @pytest.fixture(scope="module")

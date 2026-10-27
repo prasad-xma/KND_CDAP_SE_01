@@ -11,7 +11,7 @@ enhance(y, sr, method, seed, noise_ref=None) works on in-memory arrays. Methods:
 
 All four methods are deterministic: the same input always gives the same
 output. `seed` is part of the signature so every method — including future
-stochastic ones (e.g. a deep model in comp1-C) — is called the same way; the
+stochastic ones (e.g. a deep model) — is called the same way; the
 current four do not use it.
 
 Every method returns an array the same length as its input.
@@ -33,11 +33,7 @@ undo real-world damage on an incoming recording before Component 2/3 see it.
 
 import noisereduce as nr
 import numpy as np
-import soundfile as sf
 from scipy.signal import wiener
-
-from common.audio_io import ensure_wav
-from component1_robustness.config import load_config
 
 METHODS = ("noisereduce_nonstationary", "noisereduce_stationary", "wiener", "none")
 WIENER_WINDOW = 3  # samples; scipy's default local window size
@@ -74,23 +70,3 @@ def enhance(y: np.ndarray, sr: int, method: str, seed: int,
     out = np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
     return _match_length(out, len(y))
 
-
-def enhance_audio(audio_path, output_path=None, stationary=False):
-    """Backward-compatible wrapper: denoise a recording file via spectral gating.
-
-    Returns (denoised_signal, sample_rate), and also writes to `output_path`
-    if given. Same behaviour as before: noisereduce, non-stationary by default.
-    """
-    audio_path = ensure_wav(audio_path)
-    y, sr = sf.read(audio_path, always_2d=False)
-    if y.ndim > 1:
-        y = y.mean(axis=1)
-    y = y.astype(np.float32)
-
-    method = "noisereduce_stationary" if stationary else "noisereduce_nonstationary"
-    denoised = enhance(y, sr, method, seed=load_config()["seed"])
-
-    if output_path:
-        sf.write(output_path, denoised, sr)
-
-    return denoised, sr
