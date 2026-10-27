@@ -27,7 +27,9 @@ const Color _textSecondary = Color(0xFF8C9AAE);
 const Color _textFaint = Color(0xFF5B6778);
 
 class PhonationTestScreen extends StatefulWidget {
-  const PhonationTestScreen({super.key});
+  final VoidCallback? onClose;
+
+  const PhonationTestScreen({super.key, this.onClose});
 
   @override
   State<PhonationTestScreen> createState() => _PhonationTestScreenState();
@@ -926,11 +928,14 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                   ),
                   if (_lastResult != null)
                     IconButton(
-                      onPressed: () => setState(() {
-                        _lastResult = null;
-                        _showMoreVowelParams = false;
-                        _showMorePhraseParams = false;
-                      }),
+                      onPressed: () {
+                        setState(() {
+                          _lastResult = null;
+                          _showMoreVowelParams = false;
+                          _showMorePhraseParams = false;
+                        });
+                        widget.onClose?.call();
+                      },
                       icon: const Icon(Icons.close_rounded, color: _textSecondary),
                     ),
                 ],

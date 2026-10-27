@@ -28,17 +28,39 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+enum _StepState { locked, active, done }
+
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
 
+  // 1 = Start Task active, 2 = Phonation active, 3 = Speech-Motor active,
+  // 4 = Analysis active, 5 = all steps visited.
+  int _progressStep = 1;
+
   void _goToPhonationTab() => setState(() => _currentIndex = 1);
+
+  _StepState _stepStateFor(int step) {
+    if (_progressStep > step) return _StepState.done;
+    if (_progressStep == step) return _StepState.active;
+    return _StepState.locked;
+  }
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       _buildHomeDashboardTab(),
-      const PhonationTestScreen(),
-      const SpeechMotorTestScreen(),
+      PhonationTestScreen(
+        onClose: () => setState(() {
+          if (_progressStep == 2) _progressStep = 3;
+          _currentIndex = 0;
+        }),
+      ),
+      SpeechMotorTestScreen(
+        onClose: () => setState(() {
+          if (_progressStep == 3) _progressStep = 4;
+          _currentIndex = 0;
+        }),
+      ),
       const ReportsScreen(),
     ];
 
@@ -234,6 +256,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 26),
 
+          _buildGuidedStepsSection(),
+          const SizedBox(height: 26),
+
           const Text(
             'Assessment Modules',
             style: TextStyle(
@@ -338,6 +363,149 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
           const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuidedStepsSection() {
+    final steps = [
+      (
+        number: 1,
+        title: 'Start Task',
+        subtitle: 'Begin your assessment session',
+        icon: Icons.flag_rounded,
+        onTap: () => setState(() => _progressStep = 2),
+      ),
+      (
+        number: 2,
+        title: 'Phonation Test',
+        subtitle: 'Sustained vowel voice check',
+        icon: Icons.graphic_eq_rounded,
+        onTap: () => setState(() => _currentIndex = 1),
+      ),
+      (
+        number: 3,
+        title: 'Speech Motor Task',
+        subtitle: 'DDK passage reading task',
+        icon: Icons.record_voice_over_rounded,
+        onTap: () => setState(() => _currentIndex = 2),
+      ),
+      (
+        number: 4,
+        title: 'Analysis',
+        subtitle: 'Fusion result across both tasks',
+        icon: Icons.analytics_outlined,
+        onTap: () => setState(() {
+          _currentIndex = 3;
+          if (_progressStep == 4) _progressStep = 5;
+        }),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final step in steps)
+          _buildStepItem(
+            title: step.title,
+            subtitle: step.subtitle,
+            icon: step.icon,
+            state: _stepStateFor(step.number),
+            onTap: step.onTap,
+            isLast: step.number == steps.length,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStepItem({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required _StepState state,
+    required VoidCallback onTap,
+    required bool isLast,
+  }) {
+    final bool enabled = state != _StepState.locked;
+    final Color circleColor = switch (state) {
+      _StepState.locked => _stroke,
+      _StepState.active => _accent,
+      _StepState.done => _accentDim,
+    };
+    final Color titleColor = enabled ? _textPrimary : _textFaint;
+    final Color subtitleColor = enabled ? _textSecondary : _textFaint;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: circleColor,
+                  shape: BoxShape.circle,
+                  boxShadow: state == _StepState.active
+                      ? [BoxShadow(color: _accent.withValues(alpha: 0.4), blurRadius: 12, spreadRadius: 1)]
+                      : null,
+                ),
+                child: Center(
+                  child: state == _StepState.done
+                      ? const Icon(Icons.check_rounded, color: Color(0xFF071210), size: 20)
+                      : Icon(icon, color: enabled ? const Color(0xFF071210) : _textFaint, size: 18),
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    color: state == _StepState.done ? _accentDim : _stroke,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: enabled ? onTap : null,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: state == _StepState.active ? _surfaceRaised : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      border: state == _StepState.active
+                          ? Border.all(color: _accent.withValues(alpha: 0.4))
+                          : null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

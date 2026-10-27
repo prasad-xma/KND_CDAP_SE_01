@@ -3,7 +3,9 @@ import '../core/i18n/language_controller.dart';
 import '../core/widgets/language_toggle_button.dart';
 
 class SpeechMotorTestScreen extends StatefulWidget {
-  const SpeechMotorTestScreen({super.key});
+  final VoidCallback? onClose;
+
+  const SpeechMotorTestScreen({super.key, this.onClose});
 
   @override
   State<SpeechMotorTestScreen> createState() => _SpeechMotorTestScreenState();
@@ -107,6 +109,11 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                     ),
                   ),
                   const LanguageToggleButton(activeColor: primaryBlue),
+                  if (widget.onClose != null)
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close_rounded, color: mediumGrey),
+                    ),
                 ],
               ),
               const SizedBox(height: 24),
