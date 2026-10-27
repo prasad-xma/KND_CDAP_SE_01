@@ -35,10 +35,10 @@ uvicorn component1_robustness.api:app --reload --host 0.0.0.0 --port 8001
 | Load | `common/audio_io.py`, `pipeline.py` | any format → mono WAV at 16 kHz |
 | Duration check | `quality_metrics.check_duration` | outside 3–15 s → FAIL now, nothing else runs |
 | Quality before | `gate_models.gate_inputs` | SNR or HNR, level, clipping, voice activity, MFCC means |
-| Features before | `features_check.phonation_features` | Component 2's own 10 features (its code, not a copy) |
+| Features before | `features_check.phonation_features` / `ddk_features` | the receiving component's own features (its code, not a copy): Component 2's 10 for `vowel`, Component 3's 12 for `ddk` |
 | Enhance | `enhancement.enhance` | `noisereduce` (non-stationary / stationary), `wiener`, or `none` |
 | Quality / features after | as above | on the enhanced audio |
-| Preservation check | `features_check.compare_features` | jitter, shimmer, HNR, mean F0 within relative tolerance? |
+| Preservation check | `features_check.compare_features` | `vowel`: jitter, shimmer, HNR, mean F0; `ddk`: DDK rate, mean IOI, CV of IOI, pause ratio — each within its relative tolerance? |
 | Gate decision | `gate_models` | hard rules (duration, clipping, no voice), then the selected model |
 
 **Which audio goes on:** if enhancement preserved the biomarkers, the gate
@@ -105,7 +105,7 @@ python -m component1_robustness.demo        # 2 recordings + the suite + benchma
 | Sanity rules | every gate model: clean → PASS, noise / silence / clipped / too short / too long → FAIL; score never rises with more noise |
 | Preservation | `test_features_check.py`, `test_pipeline.py` (tight tolerance → raw audio forwarded) |
 | Reproducibility by hash | same input twice → identical `report.json`, WAVs and PNGs; same seed → identical benchmark CSV |
-| Golden regression set | `tests/golden/`: 7 seeded clips (clean, 20/5/0 dB noise, clipped, 2.9 s, 15.1 s) and their expected reports; `test_golden_set.py` re-runs them (floats within 1e-6) |
+| Golden regression set | `tests/golden/`: 7 seeded clips (clean, 20/5/0 dB noise, clipped, 2.9 s, 15.1 s) and their expected reports; `test_golden_set.py` re-runs them (decisions exact, floats within 1e-4 so the set passes on Windows and Linux) |
 | Benchmark correctness | `test_benchmark.py`: metrics equal a 10-row hand calculation exactly; no participant in both train and test |
 
 The golden set uses a frozen config (`tests/golden/config_golden.yaml`) so it
@@ -137,7 +137,7 @@ change, then review the JSON diff:
   zero-crossing features depend on sample rate; confirm the rate its model was
   trained on.
 - **Placeholders still to calibrate:** `min_voice_activity_pct` and
-  `feature_tolerances` in the config. Relative tolerances also break down for
+  `feature_tolerances` and `ddk_feature_tolerances` in the config. Relative tolerances also break down for
   features near zero (e.g. jitter of a perfectly periodic signal).
 - **Silence-based SNR on digitally silent pauses** reads low (~5 dB): all-zero
   frames are dropped before the noise floor is taken. Real recordings always

@@ -74,3 +74,9 @@ def test_resolve_path_absolute_is_kept(tmp_path):
 def test_resolve_path_real_model_exists():
     from component1_robustness.config import resolve_path
     assert resolve_path(load_config(), "component2_model").is_file()
+
+
+def test_ddk_feature_tolerances_are_component3_features():
+    from component3_ddk.features import FEATURE_NAMES as DDK_FEATURE_NAMES
+    tolerances = load_config()["ddk_feature_tolerances"]
+    assert tolerances and set(tolerances) <= set(DDK_FEATURE_NAMES)

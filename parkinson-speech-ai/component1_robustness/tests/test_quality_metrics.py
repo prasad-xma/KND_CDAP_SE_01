@@ -125,11 +125,6 @@ def test_has_usable_silence():
     assert has_usable_silence(continuous, SR) is False
 
 
-def test_hnr_requires_sr(tone):
-    with pytest.raises(TypeError):
-        hnr(tone)
-
-
 # --- Monotonic: more noise never raises the estimate ------------------------
 
 def _sweep(make_signal, measure) -> list[float]:

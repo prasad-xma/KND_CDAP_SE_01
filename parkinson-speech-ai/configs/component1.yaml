@@ -35,6 +35,14 @@ feature_tolerances:
   hnr: 0.15
   mean_f0: 0.05
 
+# The same check for DDK recordings, on Component 3's own features
+# (component3_ddk.features). PLACEHOLDERS — calibrated in a later part.
+ddk_feature_tolerances:
+  ddk_rate: 0.05
+  mean_ioi: 0.05
+  cv_ioi: 0.20
+  pause_ratio: 0.20
+
 # Gate benchmark (component1_robustness/benchmark.py)
 benchmark:
   models: [comp1-A, comp1-B-rf, comp1-B-svm, comp1-B-logreg]

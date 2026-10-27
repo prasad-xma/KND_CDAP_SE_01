@@ -124,3 +124,11 @@ def test_relative_diff_known_answers(before, after, expected):
 
 def test_relative_diff_nan():
     assert math.isnan(relative_diff(math.nan, 1.0))
+
+
+def test_ddk_features_are_component3_features():
+    """DDK recordings are checked with Component 3's own extractor and feature names."""
+    from component3_ddk.features import FEATURE_NAMES as DDK_FEATURE_NAMES
+    from conftest import make_ddk
+    feats = features_check.ddk_features(make_ddk(), SR)
+    assert feats is not None and list(feats) == DDK_FEATURE_NAMES

@@ -15,7 +15,11 @@ import soundfile as sf
 from component1_robustness.pipeline import run_gate
 from golden.generate import CLIPS_DIR, EXPECTED_DIR, SR, TASK, golden_config, make_clips, normalise
 
-FLOAT_TOL = 1e-6
+# Relative/absolute float tolerance. MFCC means are float32 and differ by ~3e-6 (relative)
+# between Windows and Linux builds of the same libraries, so 1e-6 was too strict across
+# machines. 1e-4 still catches any real behaviour change (decisions, reasons and paths are
+# compared exactly; a 0.1% change in any number fails).
+FLOAT_TOL = 1e-4
 
 # What each clip MEANS. Checked separately so a regenerated set cannot silently change it.
 EXPECTED_DECISIONS = {
@@ -74,6 +78,11 @@ def test_clips_regenerate_byte_for_byte(name):
 
 def test_comparator_accepts_tiny_float_difference():
     assert_matches({"a": 1.0, "b": [1, "x"]}, {"a": 1.0 + 1e-9, "b": [1, "x"]})
+
+
+def test_comparator_accepts_cross_platform_float32_noise():
+    """Real case: an MFCC mean computed on Windows vs Linux."""
+    assert_matches({"mfcc_mean_2": 2.6524767875671387}, {"mfcc_mean_2": 2.65246844291687})
 
 
 @pytest.mark.parametrize("actual", [{"a": 1.001}, {"a": 1.0, "extra": 2}, {"a": "1.0"}, {"a": None}])

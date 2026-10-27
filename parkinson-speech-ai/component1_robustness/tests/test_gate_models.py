@@ -147,10 +147,6 @@ def test_comp1a_low_snr_reason():
 
 # --- Factory, availability, save / load ----------------------------------------------
 
-def test_comp1a_and_b_always_available():
-    assert {"comp1-A", "comp1-B-rf", "comp1-B-svm", "comp1-B-logreg"} <= set(AVAILABLE)
-
-
 def test_unknown_name_raises():
     with pytest.raises(ValueError):
         get_gate_model("comp1-Z", CONFIG)

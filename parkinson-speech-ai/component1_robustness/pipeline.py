@@ -31,7 +31,7 @@ import soundfile as sf
 from common.audio_io import ensure_wav
 from component1_robustness.config import resolve_path
 from component1_robustness.enhancement import enhance
-from component1_robustness.features_check import compare_features, phonation_features
+from component1_robustness.features_check import compare_features, ddk_features, phonation_features
 from component1_robustness.gate_models import (
     FAIL, PASS, gate_inputs, load_gate_model,
 )
@@ -39,6 +39,9 @@ from component1_robustness.quality_metrics import check_duration
 from component1_robustness.visualise import plot_spectrograms, plot_waveforms
 
 TASKS = {"vowel": "component2", "ddk": "component3"}
+# Biomarkers that must survive enhancement: the features of the component that receives the audio.
+TASK_FEATURES = {"vowel": (phonation_features, "feature_tolerances"),
+                 "ddk": (ddk_features, "ddk_feature_tolerances")}
 # 24-bit PCM (~144 dB dynamic range, far beyond any phone microphone). Not 32-bit
 # float: libsndfile adds a PEAK chunk containing a timestamp to float WAVs, which
 # would make raw.wav / enhanced.wav differ on every run.
@@ -183,15 +186,16 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
         write_report(report, out_dir / "report.json")
         return json_safe(report)
 
+    extract_features, tolerance_key = TASK_FEATURES[task]
     quality_before = gate_inputs(y_raw, sr, config)
-    features_before = phonation_features(y_raw, sr)
+    features_before = extract_features(y_raw, sr)
 
     y_enh = enhance(y_raw, sr, config["enhancement_method"], config["seed"])
     sf.write(enhanced_path, y_enh, sr, subtype=WAV_SUBTYPE)
 
     quality_after = gate_inputs(y_enh, sr, config)
-    features_after = phonation_features(y_enh, sr)
-    preservation = compare_features(features_before, features_after, config["feature_tolerances"])
+    features_after = extract_features(y_enh, sr)
+    preservation = compare_features(features_before, features_after, config[tolerance_key])
 
     use_enhanced = preservation["preserved"]
     judged = quality_after if use_enhanced else quality_before

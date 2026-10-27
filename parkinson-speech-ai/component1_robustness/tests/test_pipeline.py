@@ -111,6 +111,15 @@ def test_clean_ddk_passes_to_component3(tmp_path):
     assert report["next_component"] == "component3"
 
 
+def test_ddk_preservation_uses_component3_features(tmp_path):
+    """The audio goes to Component 3, so its DDK features are the ones checked."""
+    from component3_ddk.features import FEATURE_NAMES as DDK_FEATURE_NAMES
+    cfg = _config(tmp_path)
+    report = run_gate(_wav(tmp_path, "d.wav", make_ddk()), "ddk", cfg)
+    assert list(report["features_before"]) == DDK_FEATURE_NAMES
+    assert set(report["feature_preserved"]["per_feature"]) == set(cfg["ddk_feature_tolerances"])
+
+
 def test_0db_noisy_clip_fails_with_reason_and_message(tmp_path):
     cfg = _config(tmp_path)
     report = run_gate(_wav(tmp_path, "noisy.wav", _noisy_0db(_natural_vowel())), "vowel", cfg)

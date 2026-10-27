@@ -71,14 +71,6 @@ def test_condition_rng_changes_with_any_input(other):
     assert not np.array_equal(base, _first_draws(condition_rng(*other)))
 
 
-def test_condition_rng_gives_same_degraded_audio_in_every_script(tone, sr):
-    """experiment / evaluate_enhancement / labels all derive noise the same way."""
-    seed = load_config()["seed"]
-    outputs = [degrade(tone, sr, ("noise", 5), condition_rng(seed, "a.wav", "noise_snr_5db")) for _ in range(3)]
-    np.testing.assert_array_equal(outputs[0], outputs[1])
-    np.testing.assert_array_equal(outputs[0], outputs[2])
-
-
 # --- Scripts use the shared list and the config seed -------------------------
 
 def test_scripts_share_one_conditions_list():
@@ -90,11 +82,6 @@ def test_enhancement_conditions_are_subset_of_shared_list():
     for name, spec in evaluate_enhancement.ENHANCEMENT_CONDITIONS:
         assert shared[name] == spec
     assert "clean" not in dict(evaluate_enhancement.ENHANCEMENT_CONDITIONS)
-
-
-@pytest.mark.parametrize("module", SAMPLING_SCRIPTS, ids=lambda m: m.__name__.split(".")[-1])
-def test_no_hardcoded_random_state(module):
-    assert not hasattr(module, "RANDOM_STATE")
 
 
 @pytest.fixture

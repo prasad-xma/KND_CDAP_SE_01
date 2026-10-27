@@ -1,7 +1,8 @@
-"""Biomarker-preservation check: did enhancement keep Component 2's features intact?
+"""Biomarker-preservation check: did enhancement keep the receiving component's features intact?
 
-Component 1 uses Component 2's OWN feature extractor (never a copy of it), so
-"preserved" means preserved for the model that will actually use the audio.
+Component 1 uses the OWN feature extractor of the component that will receive the
+audio (never a copy of it): Component 2's for vowel recordings, Component 3's for
+DDK recordings. So "preserved" means preserved for the model that will actually use it.
 """
 
 import math
@@ -15,25 +16,35 @@ import soundfile as sf
 
 from component1_robustness.config import resolve_path
 from component2_phonation.features import extract_phonation_features
+from component3_ddk.features import extract_ddk_features
 
 EPS = 1e-12
 NO_PREDICTION = -1   # Component 2 found no voiced frames
 
 
-def phonation_features(y: np.ndarray, sr: int) -> dict[str, float] | None:
-    """Component 2's 10 phonation features for an in-memory signal.
+def _features_of(extractor, y: np.ndarray, sr: int) -> dict[str, float] | None:
+    """Run a component's file-based extractor on an in-memory signal.
 
-    Writes a temporary 32-bit float WAV (no quantisation loss), calls
-    component2_phonation.features.extract_phonation_features, then deletes it.
-    Returns None if Component 2 finds no voiced frames.
+    Writes a temporary 32-bit float WAV (no quantisation loss), calls the
+    extractor on it, then deletes it.
     """
     fd, tmp_path = tempfile.mkstemp(suffix=".wav")
     os.close(fd)  # Windows cannot reopen a file that is still open
     try:
         sf.write(tmp_path, np.asarray(y, dtype=np.float32), sr, subtype="FLOAT")
-        return extract_phonation_features(tmp_path)
+        return extractor(tmp_path)
     finally:
         os.remove(tmp_path)
+
+
+def phonation_features(y: np.ndarray, sr: int) -> dict[str, float] | None:
+    """Component 2's 10 phonation features; None if Component 2 finds no voiced frames."""
+    return _features_of(extract_phonation_features, y, sr)
+
+
+def ddk_features(y: np.ndarray, sr: int) -> dict[str, float] | None:
+    """Component 3's 12 DDK features; None if Component 3 finds too few syllable onsets."""
+    return _features_of(extract_ddk_features, y, sr)
 
 
 def relative_diff(before: float, after: float) -> float:
