@@ -20,6 +20,16 @@ Voice presence (voice_check.py): if the raw take is flat in the speech band (nob
 started or stopped speaking), a PASS or quality FAIL becomes "no_voice" in a quiet room,
 or "low_snr" when loud steady noise drowned the voice.
 
+Enhancement policy (config `enhancement:` section, v1.8; absent = always enhance, as before):
+    skip_if_contrast_db_at_least  a take this clean is not processed at all: enhanced.wav is
+                                  a copy of raw.wav and raw.wav is forwarded. Real app takes
+                                  did not need cleaning, and cleaning damaged their biomarkers.
+    noise_sample                  for noisereduce_stationary: build the noise profile from the
+                                  take's own non-voiced parts (enhancement.noise_reference).
+                                  Too little non-voiced audio -> fallback_method is used instead.
+    prop_decrease, highpass_hz    passed to enhancement.enhance().
+The report then has an "enhancement" key saying what was done and why.
+
 Task check (task_check.py, config task_check.enabled): a good-quality take that is not
 the task (e.g. speech or gibberish instead of one steady "aaaa") becomes "wrong_task".
 It only replaces a PASS: a take that already failed on quality keeps that message, since
@@ -41,7 +51,7 @@ import soundfile as sf
 
 from common.audio_io import ensure_wav
 from component1_robustness.config import resolve_path
-from component1_robustness.enhancement import enhance
+from component1_robustness.enhancement import enhance, noise_reference
 from component1_robustness.features_check import compare_features, ddk_features, phonation_features
 from component1_robustness.gate_models import (
     FAIL, PASS, gate_inputs, load_gate_model,
@@ -103,6 +113,7 @@ REPORT_SCHEMA = {
         "config_version": {"type": "string"},
         "voice_check": {"type": ["object", "null"]},
         "task_check": {"type": ["object", "null"]},   # optional: only when task_check is enabled
+        "enhancement": {"type": ["object", "null"]},  # optional: only with an `enhancement:` config section
     },
 }
 
@@ -159,6 +170,32 @@ def write_report(report: dict, path: Path) -> None:
     path.write_text(text + "\n", encoding="utf-8", newline="\n")
 
 
+def enhance_take(y_raw: np.ndarray, sr: int, contrast_db: float, config: dict) -> tuple[np.ndarray, dict | None]:
+    """(enhanced signal, what was done). Without an `enhancement:` section: always enhance, info None."""
+    method, seed = config["enhancement_method"], config["seed"]
+    policy = config.get("enhancement")
+    if not policy:
+        return enhance(y_raw, sr, method, seed), None
+    skip_db = policy.get("skip_if_contrast_db_at_least")
+    info = {"configured_method": method, "applied": True, "method_used": method,
+            "skip_if_contrast_db_at_least": skip_db, "speech_band_contrast_db": float(contrast_db),
+            "noise_sample_s": None, "note": None}
+    if skip_db is not None and contrast_db >= skip_db:
+        info.update(applied=False, method_used="none", note="clean enough: not processed")
+        return y_raw.copy(), info
+    options = {"prop_decrease": float(policy.get("prop_decrease", 1.0)),
+               "highpass_hz": float(policy.get("highpass_hz", 80.0))}
+    if method == "noisereduce_stationary" and policy.get("noise_sample", False):
+        noise_ref = noise_reference(y_raw, sr)
+        if noise_ref is None:
+            method = policy.get("fallback_method", "none")
+            info.update(method_used=method, note="no noise-only part in the take: fallback used")
+        else:
+            options["noise_ref"] = noise_ref
+            info["noise_sample_s"] = len(noise_ref) / sr
+    return enhance(y_raw, sr, method, seed, **options), info
+
+
 def user_message(reason: str, config: dict) -> str:
     return USER_MESSAGES.get(reason, "Please record again.").format(
         min=config["min_duration_s"], max=config["max_duration_s"])
@@ -207,14 +244,18 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
     quality_before = gate_inputs(y_raw, sr, config)
     features_before = extract_features(y_raw, sr)
 
-    y_enh = enhance(y_raw, sr, config["enhancement_method"], config["seed"])
+    y_enh, enhancement = enhance_take(y_raw, sr, quality_before["speech_band_contrast_db"], config)
     sf.write(enhanced_path, y_enh, sr, subtype=WAV_SUBTYPE)
+    applied = enhancement is None or enhancement["applied"]
 
-    quality_after = gate_inputs(y_enh, sr, config)
-    features_after = extract_features(y_enh, sr)
+    if applied:
+        quality_after = gate_inputs(y_enh, sr, config)
+        features_after = extract_features(y_enh, sr)
+    else:   # not processed: the "after" audio is the raw audio
+        quality_after, features_after = quality_before, features_before
     preservation = compare_features(features_before, features_after, config[tolerance_key])
 
-    use_enhanced = preservation["preserved"]
+    use_enhanced = applied and preservation["preserved"]
     judged = quality_after if use_enhanced else quality_before
     decision = gate.predict(judged)
 
@@ -244,6 +285,8 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
     )
     if task_check is not None:
         report["task_check"] = task_check
+    if enhancement is not None:
+        report["enhancement"] = enhancement
     if decision["decision"] == PASS:
         report.update(
             audio_choice="enhanced" if use_enhanced else "raw",

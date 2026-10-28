@@ -72,11 +72,16 @@ def voiced_runs(f0: np.ndarray, time_step: float = TIME_STEP_S, max_gap_s: float
     return runs
 
 
+def pitch_track(y: np.ndarray, sr: int) -> np.ndarray:
+    """Praat F0 per 10 ms frame (0 = unvoiced). Also used by enhancement.noise_reference()."""
+    sound = parselmouth.Sound(np.asarray(y, dtype=np.float64), sampling_frequency=sr)
+    return sound.to_pitch(time_step=TIME_STEP_S, pitch_floor=F0_MIN_HZ,
+                          pitch_ceiling=F0_MAX_HZ).selected_array["frequency"]
+
+
 def vowel_task_metrics(y: np.ndarray, sr: int) -> dict:
     """Longest unbroken voiced stretch, its share of all voicing, and its pitch spread."""
-    sound = parselmouth.Sound(np.asarray(y, dtype=np.float64), sampling_frequency=sr)
-    f0 = sound.to_pitch(time_step=TIME_STEP_S, pitch_floor=F0_MIN_HZ,
-                        pitch_ceiling=F0_MAX_HZ).selected_array["frequency"]
+    f0 = pitch_track(y, sr)
     runs = voiced_runs(f0)
     if not runs:
         return {"longest_voiced_s": 0.0, "voiced_share": 0.0, "n_voiced_runs": 0,

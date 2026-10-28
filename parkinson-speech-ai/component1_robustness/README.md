@@ -36,7 +36,7 @@ uvicorn component1_robustness.api:app --reload --host 0.0.0.0 --port 8001
 | Duration check | `quality_metrics.check_duration` | outside 1.5–5 s → FAIL now, nothing else runs |
 | Quality before | `gate_models.gate_inputs` | SNR or HNR, level, clipping, voice activity, MFCC means |
 | Features before | `features_check.phonation_features` / `ddk_features` | the receiving component's own features (its code, not a copy): Component 2's 10 for `vowel`, Component 3's 12 for `ddk` |
-| Enhance | `enhancement.enhance` | `noisereduce` (non-stationary / stationary), `wiener`, or `none` |
+| Enhance | `pipeline.enhance_take` → `enhancement.enhance` | `highpass` (80 Hz, default since v1.8), `noisereduce` (non-stationary / stationary + noise sample), `wiener`, or `none`; optional skip-when-clean policy |
 | Quality / features after | as above | on the enhanced audio |
 | Preservation check | `features_check.compare_features` | `vowel`: jitter, shimmer, HNR, mean F0; `ddk`: DDK rate, mean IOI, CV of IOI, pause ratio — each within its relative tolerance? |
 | Gate decision | `gate_models` | hard rules (duration, clipping, no voice), then the selected model |
@@ -74,6 +74,29 @@ and real app takes (real vowels 1.84–3.47 s pass; a gibberish take, 0.33 s,
 fails). Pitch spread is recorded but not used: it did not separate gibberish
 from real vowels. DDK is reported as not checked. Thresholds are PLACEHOLDERS
 until more labelled wrong-task takes exist.
+
+**Enhancement choice (v1.8).** `compare_enhancement.py` takes the 81 real AH
+vowels, adds 0.6 s of lead-in, degrades them (clean, white noise 10/5/0 dB,
+50 Hz hum + rumble at 5 dB), runs every method, and measures how far jitter,
+shimmer, HNR, mean F0 and voice level end up from the **clean original**
+(Praat directly; no Component 2). Medians over 81 clips:
+
+| Method | Clean take: level change / SI-SDR | Hum + rumble: SI-SDR (none: 4.3 dB) | White noise 5 dB: level change |
+|---|---|---|---|
+| noisereduce non-stationary (old default) | −10.4 dB / 3.3 dB | 2.1 dB | −12.4 dB |
+| noisereduce stationary + noise sample | 0.0 dB / 38.3 dB | 13.7 dB | −9.5 dB |
+| **high-pass 80 Hz (chosen)** | **0.0 dB / 33.9 dB** | **32.4 dB** (all biomarkers back to clean in 100% of clips) | 0.0 dB (no effect) |
+
+The old method cut the voice by ~10–12 dB on every take, clean ones included.
+The high-pass never harms a take and removes hum and rumble completely. Under
+broadband noise no method restored all biomarkers (stationary noisereduce helped
+jitter/HNR but cut the level and made shimmer worse about half the time), so
+heavily noisy takes are left to the gate to reject. Results:
+`results/component1_robustness/enhancement_comparison_summary.csv`.
+
+```
+python -m component1_robustness.compare_enhancement   # ~20 min, needs data/vowel_task/raw
+```
 
 **Which audio goes on:** if enhancement preserved the biomarkers, the gate
 judges and forwards `enhanced.wav`; if not, it judges and forwards `raw.wav`
