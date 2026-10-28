@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n/language_controller.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
 
@@ -13,7 +14,9 @@ class GetStartedScreen2 extends StatelessWidget {
     const Color primaryTealLight = Color(0xFF0EC4B7);
     const Color lightGrey = Color(0xFF666666);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) => AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
@@ -55,9 +58,9 @@ class GetStartedScreen2 extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text(
-                'Skip',
-                style: TextStyle(
+              child: Text(
+                tr('skipButton'),
+                style: const TextStyle(
                   color: primaryTeal,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -116,10 +119,10 @@ class GetStartedScreen2 extends StatelessWidget {
                 const Spacer(flex: 2),
 
                 // Title
-                const Text(
-                  'AI-Powered Insights',
+                Text(
+                  tr('aiPoweredInsightsTitle'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: primaryTeal,
@@ -129,12 +132,12 @@ class GetStartedScreen2 extends StatelessWidget {
                 const SizedBox(height: 14),
 
                 // Description
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: Text(
-                    'Track clinical voice biomarkers, speech stability, and receive intelligent diagnostic health summaries.',
+                    tr('aiPoweredInsightsDesc'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       height: 1.5,
                       color: lightGrey,
@@ -200,10 +203,10 @@ class GetStartedScreen2 extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Log In',
-                          style: TextStyle(
+                          tr('logInButton'),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -246,10 +249,10 @@ class GetStartedScreen2 extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Create New Account',
-                          style: TextStyle(
+                          tr('createNewAccountButton'),
+                          style: const TextStyle(
                             color: primaryTeal,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -265,6 +268,7 @@ class GetStartedScreen2 extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

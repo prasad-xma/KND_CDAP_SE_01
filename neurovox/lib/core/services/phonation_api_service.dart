@@ -51,6 +51,22 @@ class PhonationApiService {
     return _sendAndParseDual(request);
   }
 
+  static Future<PhonationMultiResult> screenVowelMulti(List<String> filePaths) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/phonation/screen_vowel_multi'));
+    for (final path in filePaths) {
+      request.files.add(await http.MultipartFile.fromPath('audio_files', path));
+    }
+    return _sendAndParseMulti(request);
+  }
+
+  static Future<PhonationMultiResult> screenVowelMultiBytes(List<List<int>> byteLists) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/phonation/screen_vowel_multi'));
+    for (var i = 0; i < byteLists.length; i++) {
+      request.files.add(http.MultipartFile.fromBytes('audio_files', byteLists[i], filename: 'vowel_$i.wav'));
+    }
+    return _sendAndParseMulti(request);
+  }
+
   static Future<PhonationResult> _sendAndParse(http.MultipartRequest request) async {
     final json = await _send(request);
     return PhonationResult.fromJson(json);
@@ -59,6 +75,11 @@ class PhonationApiService {
   static Future<PhonationDualResult> _sendAndParseDual(http.MultipartRequest request) async {
     final json = await _send(request);
     return PhonationDualResult.fromJson(json);
+  }
+
+  static Future<PhonationMultiResult> _sendAndParseMulti(http.MultipartRequest request) async {
+    final json = await _send(request);
+    return PhonationMultiResult.fromJson(json);
   }
 
   static Future<Map<String, dynamic>> _send(http.MultipartRequest request) async {

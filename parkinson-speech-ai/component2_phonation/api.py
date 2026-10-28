@@ -16,6 +16,7 @@ as multipart form-data under the field name "audio".
 import os
 import shutil
 import tempfile
+from typing import List
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -152,6 +153,42 @@ async def screen_phonation(
     response = await _score_recording(audio, extract_vowel_segment)
     _log_result("SINGLE", response)
     return response
+
+
+@app.post("/phonation/screen_vowel_multi")
+async def screen_vowel_multi(audio_files: List[UploadFile] = File(...)):
+    """Accepts N sustained-vowel recordings of the same person, scores each
+    independently with the vowel model, and averages the PD probabilities -
+    reduces take-to-take measurement noise (duration, breath support,
+    environment) compared to relying on a single recording.
+    """
+    if len(audio_files) < 1:
+        raise HTTPException(status_code=400, detail="At least one recording is required.")
+
+    recordings = []
+    for audio in audio_files:
+        r = await _score_recording(audio, extract_vowel_segment=True)
+        recordings.append(r)
+
+    avg_probability_pd = sum(r["probability_pd"] for r in recordings) / len(recordings)
+    avg_probability_hc = 1 - avg_probability_pd
+    avg_prediction = "PD" if avg_probability_pd >= 0.5 else "HC"
+
+    for i, r in enumerate(recordings):
+        _log_result(f"VOWEL_{i + 1}", r)
+    print(
+        f"[RESULT] VOWEL_AVG  -> {avg_prediction:>2}  "
+        f"P(PD)={avg_probability_pd:.3f}  P(HC)={avg_probability_hc:.3f}  "
+        f"(n={len(recordings)})",
+        flush=True,
+    )
+
+    return {
+        "prediction": avg_prediction,
+        "probability_pd": avg_probability_pd,
+        "probability_hc": avg_probability_hc,
+        "recordings": recordings,
+    }
 
 
 @app.post("/phonation/screen_dual")

@@ -9,10 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
+import '../../core/i18n/language_controller.dart';
 import '../../core/models/phonation_result.dart';
 import '../../core/services/phonation_api_service.dart';
-import 'i18n/en_en.dart';
-import 'i18n/sl_sl.dart';
 
 const Color _bg = Color(0xFF0A0E14);
 const Color _surface = Color(0xFF131A24);
@@ -28,8 +27,9 @@ const Color _textFaint = Color(0xFF5B6778);
 
 class PhonationTestScreen extends StatefulWidget {
   final VoidCallback? onClose;
+  final ValueChanged<PhonationDualResult>? onResult;
 
-  const PhonationTestScreen({super.key, this.onClose});
+  const PhonationTestScreen({super.key, this.onClose, this.onResult});
 
   @override
   State<PhonationTestScreen> createState() => _PhonationTestScreenState();
@@ -48,6 +48,14 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
   String? _vowelFilePath;
   List<int>? _vowelFileBytes;
+
+  // Step 1 records the vowel task _vowelRepeatCount times and averages the
+  // predictions - reduces take-to-take measurement noise vs a single
+  // recording (see PhonationMultiResult.toAveragedResult).
+  static const int _vowelRepeatCount = 3;
+  int _vowelRepeatIndex = 0;
+  final List<String> _vowelMultiFilePaths = [];
+  final List<List<int>> _vowelMultiByteLists = [];
 
   static const int _vowelRecordSeconds = 3;
   int _vowelCountdownRemaining = _vowelRecordSeconds;
@@ -79,8 +87,6 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
   bool _extractVowelSegment = false;
 
-  bool _isEnglish = true;
-
   static const bool _showAdvancedToggles = false;
 
   static const bool _includePhraseTask = false;
@@ -88,7 +94,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
   bool _showMoreVowelParams = false;
   bool _showMorePhraseParams = false;
 
-  String _s(String key) => _isEnglish ? enEnStrings[key]! : slSlStrings[key]!;
+  String _s(String key) => tr(key);
 
   @override
   void initState() {
@@ -146,6 +152,15 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     }
     _vowelFilePath = null;
     _vowelFileBytes = null;
+    if (!kIsWeb) {
+      for (final p in _vowelMultiFilePaths) {
+        final f = File(p);
+        if (await f.exists()) await f.delete();
+      }
+    }
+    _vowelMultiFilePaths.clear();
+    _vowelMultiByteLists.clear();
+    _vowelRepeatIndex = 0;
     _currentStep = 1;
     _vowelCountdownRemaining = _vowelRecordSeconds;
   }
@@ -164,9 +179,8 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     }
 
     if (_currentStep == 1 && !_includePhraseTask) {
-      setState(() => _isProcessing = true);
+      // Stash this repeat's recording.
       try {
-        final PhonationResult vowelResult;
         if (kIsWeb) {
           final blobResponse = await http.get(Uri.parse(path));
           final bytes = blobResponse.bodyBytes;
@@ -177,21 +191,39 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
               'full duration.',
             );
           }
-          vowelResult = await PhonationApiService.screenVowelRecordingBytes(
-            bytes,
-            extractVowelSegment: true,
-          );
+          _vowelMultiByteLists.add(bytes);
         } else {
-          vowelResult = await PhonationApiService.screenVowelRecording(
-            path,
-            extractVowelSegment: true,
-          );
+          _vowelMultiFilePaths.add(path);
         }
+      } catch (e) {
+        setState(() => _recordError = e.toString());
+        return;
+      }
+
+      final bool hasMoreRepeats = (kIsWeb ? _vowelMultiByteLists.length : _vowelMultiFilePaths.length) <
+          _vowelRepeatCount;
+      if (hasMoreRepeats) {
+        setState(() {
+          _vowelRepeatIndex++;
+          _recordError = null;
+        });
+        setModalState(() {});
+        return;
+      }
+
+      // All repeats captured - score them together and average.
+      setState(() => _isProcessing = true);
+      try {
+        final PhonationMultiResult multiResult = kIsWeb
+            ? await PhonationApiService.screenVowelMultiBytes(_vowelMultiByteLists)
+            : await PhonationApiService.screenVowelMulti(_vowelMultiFilePaths);
         if (!mounted) return;
+        final dualResult = PhonationDualResult.vowelOnly(multiResult.toAveragedResult());
         setState(() {
           _isProcessing = false;
-          _lastResult = PhonationDualResult.vowelOnly(vowelResult);
+          _lastResult = dualResult;
         });
+        widget.onResult?.call(dualResult);
         if (modalContext.mounted) Navigator.pop(modalContext);
       } catch (e) {
         if (!mounted) return;
@@ -200,10 +232,6 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
           _recordError = e.toString();
         });
       } finally {
-        if (!kIsWeb) {
-          final f = File(path);
-          if (await f.exists()) await f.delete();
-        }
         await _resetStepState();
       }
       return;
@@ -265,6 +293,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
         _isProcessing = false;
         _lastResult = result;
       });
+      widget.onResult?.call(result);
       if (modalContext.mounted) Navigator.pop(modalContext);
     } catch (e) {
       if (!mounted) return;
@@ -326,6 +355,23 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                           ),
                           child: Text(
                             isStep1 ? _s('step1Badge') : _s('step2Badge'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: _accent,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        )
+                      else if (isStep1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${_s('recordingBadgePrefix')} ${_vowelRepeatIndex + 1}/$_vowelRepeatCount',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -405,7 +451,9 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                         ? _s('analyzing')
                         : _isRecording
                             ? _s('listening')
-                            : _s('readyToRecord'),
+                            : (isStep1 && !_includePhraseTask && _vowelRepeatIndex > 0)
+                                ? _s('recordingCapturedNext')
+                                : _s('readyToRecord'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -587,48 +635,6 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
           style: const TextStyle(color: _textFaint, fontSize: 11, fontStyle: FontStyle.italic),
         ),
       ],
-    );
-  }
-
-  Widget _buildLanguageToggle() {
-    Widget pill(String label, bool selectedWhenEnglish) {
-      final bool selected = _isEnglish == selectedWhenEnglish;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => _isEnglish = selectedWhenEnglish),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: selected ? _accent : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: selected ? const Color(0xFF071210) : _textSecondary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: _surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _stroke),
-      ),
-      child: Row(
-        children: [
-          pill('English', true),
-          pill('සිංහල', false),
-        ],
-      ),
     );
   }
 
@@ -888,7 +894,9 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
   Widget build(BuildContext context) {
     final features = _lastResult?.vowelTask.features;
 
-    return SizedBox.expand(
+    return ListenableBuilder(
+      listenable: LanguageController.instance,
+      builder: (context, _) => SizedBox.expand(
       child: Container(
       color: _bg,
       child: SafeArea(
@@ -898,10 +906,6 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_showAdvancedToggles) ...[
-                _buildLanguageToggle(),
-                const SizedBox(height: 18),
-              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1050,6 +1054,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
             ],
           ),
         ),
+      ),
       ),
       ),
     );
