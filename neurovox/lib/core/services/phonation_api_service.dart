@@ -6,7 +6,10 @@ import 'package:http/http.dart' as http;
 import '../models/phonation_result.dart';
 
 class PhonationApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  // Laptop address. Default works for Chrome/desktop on the same machine.
+  // On a phone: flutter run --dart-define=API_HOST=<laptop-wifi-ip>
+  static const String _host = String.fromEnvironment('API_HOST', defaultValue: '127.0.0.1');
+  static const String baseUrl = 'http://$_host:8000';
 
   static Future<PhonationResult> screenVowelRecording(
     String filePath, {

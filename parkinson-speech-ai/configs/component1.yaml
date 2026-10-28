@@ -2,7 +2,8 @@
 # Fixed by the developer; the end user never edits this file.
 # All paths are relative to the repo root (parkinson-speech-ai/).
 
-config_version: v1.0
+config_version: v1.5                 # v1.5: comp1-A on speech-band contrast (replaces reliable_db SNR/HNR rule); voice check on contrast + level.
+                                     # v1.4: max 5 s. v1.3: 1.5-8 s. v1.2: voice check (A+B). v1.1: min 2 s
 
 # Reproducibility
 seed: 42
@@ -11,18 +12,25 @@ seed: 42
 sample_rate: 16000            # Hz, mono
 
 # Duration check (seconds)
-min_duration_s: 3.0
-max_duration_s: 15.0
+min_duration_s: 1.5
+max_duration_s: 5.0                # = the app's 5 s recording timer; takes that overrun it fail too_long
 
 # Quality thresholds
-reliable_db: 10.0             # SNR/HNR pass threshold (from robustness_summary.csv)
+comp1a_pass_db: 10.0          # comp1-A (v1.5): PASS when speech-band contrast >= this. PLACEHOLDER (real voice: 11-15 dB)
 max_clipping_pct: 1.0         # max % of samples at full scale
 min_voice_activity_pct: 50.0  # PLACEHOLDER — calibrated in a later part
+
+# Voice presence check (component1_robustness/voice_check.py), on the raw audio.
+# Flat speech band = nobody started/stopped speaking. PLACEHOLDERS from 13 labelled
+# laptop-mic takes (silence 2.3-3.4 dB at -36..-43 dBFS; voice 11-15 dB).
+voice_check:
+  min_speech_band_contrast_db: 6.0   # below this the take is flat
+  no_voice_max_level_dbfs: -30.0     # flat AND quieter than this -> no_voice; louder -> low_snr
 
 # Enhancement and gate model
 enhancement_method: noisereduce_nonstationary
 gate_model: comp1-A           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
-comp1a_score_span_db: 20.0    # comp1-A score: reliable_db -> 50, +/- this many dB -> 100 / 0
+comp1a_score_span_db: 20.0    # comp1-A score: comp1a_pass_db -> 50, +/- this many dB -> 100 / 0
 gate_pass_probability: 0.5    # comp1-B: PASS when P(reliable) >= this
 n_mfcc: 13                    # MFCC means used by comp1-B
 
@@ -48,8 +56,8 @@ benchmark:
   models: [comp1-A, comp1-B-rf, comp1-B-svm, comp1-B-logreg]
   n_folds: 5                    # StratifiedGroupKFold by participant_id
   test_fraction: 0.2            # participants held out for the final test set
-  apply_duration_rule: false    # AH clips are 1.7-5.5 s; the 3-15 s rule would reject
-                                # many for every model alike and hide quality differences
+  apply_duration_rule: false    # AH clips are 1.7-5.5 s (some exceed 5 s); kept off
+                                # so the benchmark compares quality judgement only
   # Lexicographic selection: values within selection_tolerance of the best count as tied.
   selection_order: [false_accept_rate, downstream_accuracy, f1, speed]
   selection_tolerance: 0.01

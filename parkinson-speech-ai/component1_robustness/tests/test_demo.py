@@ -5,13 +5,13 @@ import json
 import pytest
 
 from component1_robustness import demo
-from component1_robustness.config import load_config
+from conftest import gate_config
 
 
 @pytest.fixture
 def cfg(tmp_path, monkeypatch):
-    c = load_config()
-    c["paths"] = dict(c["paths"], outputs=str(tmp_path / "outputs"), results=str(tmp_path / "results"))
+    c = gate_config(tmp_path)
+    c["paths"]["results"] = str(tmp_path / "results")
     monkeypatch.setattr(demo, "load_config", lambda: c)
     return c
 

@@ -36,6 +36,7 @@ def fake_label_table(n_participants: int = 20, seed: int = 0) -> pd.DataFrame:
                 "filename": f"p{p:02d}.wav", "participant_id": f"p{p:02d}", "group": group, "condition": cond,
                 "duration_s": 4.0, "level_dbfs": -20 + rng.normal(0, 2), "clipping_pct": 0.0,
                 "voice_activity_pct": 90.0, "estimated_snr_db": snr, "method": "hnr",
+                "speech_band_contrast_db": snr,   # comp1-A input since v1.5; tracks SNR here
                 **{f"mfcc_mean_{i + 1}": rng.normal(0, 1) + 0.05 * snr for i in range(13)},
                 "clean_prediction": truth, "degraded_prediction": pred,
                 "label": "reliable" if reliable else "unreliable",

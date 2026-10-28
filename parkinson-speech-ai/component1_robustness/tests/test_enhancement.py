@@ -5,14 +5,10 @@ import pytest
 
 from component1_robustness.config import load_config
 from component1_robustness.enhancement import METHODS, enhance
+from conftest import true_snr_db
 
 SR = 16000
 SEED = load_config()["seed"]
-
-
-def _true_snr_db(clean: np.ndarray, x: np.ndarray) -> float:
-    """SNR of x against the known clean reference: clean energy / residual energy."""
-    return float(10 * np.log10(np.sum(clean ** 2) / np.sum((x - clean) ** 2)))
 
 
 @pytest.fixture
@@ -57,8 +53,8 @@ def test_unknown_method_raises(vowel):
 
 
 def test_wiener_improves_snr_at_5db(vowel, noisy_vowel_5db):
-    before = _true_snr_db(vowel, noisy_vowel_5db)
-    after = _true_snr_db(vowel, enhance(noisy_vowel_5db, SR, "wiener", SEED))
+    before = true_snr_db(vowel, noisy_vowel_5db)
+    after = true_snr_db(vowel, enhance(noisy_vowel_5db, SR, "wiener", SEED))
     assert after > before
 
 

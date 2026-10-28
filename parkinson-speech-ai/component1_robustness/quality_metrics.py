@@ -13,6 +13,11 @@ work for both task types:
     which is normal for a tightly trimmed sustained vowel ("aaaa").
     A clip with no silence has no genuine noise floor, so the "quietest 10%
     of frames" would just be quiet vowel energy, not noise.
+
+Speech-band contrast (comp1-A's measure since config v1.5): loud-vs-quiet
+contrast of the 300-3400 Hz band only. Real laptop-mic takes showed that HNR
+cannot separate a voice from steady room hum (voice 7.5-9.5 dB, silence
+9.6-10.0 dB), while this contrast can (voice 11-15 dB, silence 2.3-3.4 dB).
 """
 
 import librosa
@@ -40,6 +45,11 @@ VAD_ABS_FLOOR_DBFS = -60.0     # ...AND above -60 dBFS (so pure silence has 0% a
 # Clipping
 CLIP_THRESHOLD = 0.99
 
+# Speech-band contrast
+SPEECH_BAND_HZ = (300.0, 3400.0)   # voice formants; above mains hum and fan rumble
+CONTRAST_LOW_PCT = 10              # quiet frames
+CONTRAST_HIGH_PCT = 90             # loud frames
+
 # --- Basic measurements ------------------------------------------------------
 
 def duration_s(y: np.ndarray, sr: int) -> float:
@@ -62,10 +72,14 @@ def check_duration(y: np.ndarray, sr: int, min_s: float, max_s: float) -> tuple[
     return reason == "ok", reason
 
 
+def rms_level(y: np.ndarray) -> float:
+    """Root-mean-square level of a signal."""
+    return float(np.sqrt(np.mean(y ** 2) + EPS))
+
+
 def mean_level_dbfs(y: np.ndarray) -> float:
     """Overall RMS level in dB relative to full scale (1.0)."""
-    rms = np.sqrt(np.mean(y ** 2) + EPS)
-    return float(20 * np.log10(rms + EPS))
+    return float(20 * np.log10(rms_level(y) + EPS))
 
 
 def clipping_pct(y: np.ndarray, threshold: float = CLIP_THRESHOLD) -> float:
@@ -133,6 +147,28 @@ def estimate_quality_db(y: np.ndarray, sr: int) -> tuple[float, str]:
     return hnr(y, sr), "hnr"
 
 
+# --- Speech-band contrast -------------------------------------------------------
+
+def speech_band_contrast_db(y: np.ndarray, sr: int) -> float:
+    """Loud-vs-quiet contrast (dB) of the 300-3400 Hz band: 90th minus 10th percentile
+    of per-frame band energy.
+
+    A voice starts, stops and changes, so its speech band varies a lot (real takes:
+    11-15 dB). Steady room noise, a fan or mains hum stays flat (real takes: 2.3-3.4 dB).
+    Using only the speech band ignores the low-frequency hum that dominates full-band
+    energy. Digital silence returns 0.0.
+    """
+    y = np.asarray(y, dtype=np.float32)
+    if len(y) == 0 or not np.any(y):
+        return 0.0
+    power = np.abs(librosa.stft(y, n_fft=FRAME_LENGTH, hop_length=HOP_LENGTH)) ** 2
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=FRAME_LENGTH)
+    top = min(SPEECH_BAND_HZ[1], sr / 2)
+    band = power[(freqs >= SPEECH_BAND_HZ[0]) & (freqs < top)].sum(axis=0)
+    band_db = 10 * np.log10(band + EPS)
+    return float(np.percentile(band_db, CONTRAST_HIGH_PCT) - np.percentile(band_db, CONTRAST_LOW_PCT))
+
+
 # --- All metrics together ----------------------------------------------------
 
 def compute_quality(y: np.ndarray, sr: int) -> dict[str, float | str]:
@@ -143,6 +179,7 @@ def compute_quality(y: np.ndarray, sr: int) -> dict[str, float | str]:
         "level_dbfs": mean_level_dbfs(y),
         "clipping_pct": clipping_pct(y),
         "voice_activity_pct": voice_activity_pct(y, sr),
+        "speech_band_contrast_db": speech_band_contrast_db(y, sr),
         "estimated_snr_db": estimate_db,
         "method": method,
     }

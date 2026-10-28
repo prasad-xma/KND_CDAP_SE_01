@@ -12,8 +12,9 @@ from sklearn.dummy import DummyClassifier
 from component1_robustness import labels
 from component1_robustness.conditions import CONDITIONS
 from component1_robustness.config import load_config
+from component1_robustness.features_check import NO_PREDICTION
 from component1_robustness.labels import (
-    NO_PREDICTION, RELIABLE, UNRELIABLE, build_label_table, find_clips, label_clip,
+    RELIABLE, UNRELIABLE, build_label_table, find_clips, label_clip,
     participant_id_from_path,
 )
 from component1_robustness.quality_metrics import compute_quality

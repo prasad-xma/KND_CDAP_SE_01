@@ -10,7 +10,7 @@ from component1_robustness.gate_models import (
     save_gate_model,
 )
 
-from conftest import make_vowel
+from conftest import as_take, make_vowel
 
 SR = 16000
 CONFIG = load_config()
@@ -24,11 +24,12 @@ def _noisy(y: np.ndarray, snr_db: float, seed: int) -> np.ndarray:
 
 
 def _wobbly_vowel(f0: float, seed: int, duration_s: float = 5.0) -> np.ndarray:
-    """Vowel with a slow random loudness wobble, so clips differ like real voices."""
+    """Vowel with a slow random loudness wobble, so clips differ like real voices,
+    shaped like a real take (quiet lead-in and tail)."""
     rng = np.random.default_rng(seed)
     y = make_vowel(f0_hz=f0, duration_s=duration_s)
     t = np.arange(len(y)) / SR
-    return y * (1 + 0.1 * np.sin(2 * np.pi * rng.uniform(2, 6) * t))
+    return as_take(y * (1 + 0.1 * np.sin(2 * np.pi * rng.uniform(2, 6) * t)), seed=seed)
 
 
 # --- Synthetic training set and trained models (built once) -----------------------
@@ -82,14 +83,14 @@ def test_silence_fails(name, trained):
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-@pytest.mark.parametrize("seconds,reason", [(2.9, "too_short"), (15.1, "too_long")])
+@pytest.mark.parametrize("seconds,reason", [(1.4, "too_short"), (5.1, "too_long")])
 def test_duration_rule(name, seconds, reason, trained):
     result = trained[name].predict(_inputs(make_vowel(duration_s=seconds)))
     assert result == {"decision": FAIL, "quality_score": 0.0, "reason": reason}
 
 
 @pytest.mark.parametrize("name", AVAILABLE)
-@pytest.mark.parametrize("seconds", [3.0, 15.0])
+@pytest.mark.parametrize("seconds", [1.5, 5.0])
 def test_duration_limits_inclusive(name, seconds, trained):
     assert trained[name].predict(_inputs(_wobbly_vowel(155, 98, seconds)))["reason"] not in {"too_short", "too_long"}
 

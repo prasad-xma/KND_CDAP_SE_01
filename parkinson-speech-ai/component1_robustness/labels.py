@@ -23,8 +23,8 @@ import pandas as pd
 
 from component1_robustness.conditions import CONDITIONS, condition_rng, degrade
 from component1_robustness.config import load_config, resolve_path
-from component1_robustness.features_check import (  # noqa: F401  (NO_PREDICTION re-exported for benchmark.py)
-    NO_PREDICTION, compare_features, load_component2_model, phonation_features, predict_component2,
+from component1_robustness.features_check import (
+    compare_features, load_component2_model, phonation_features, predict_component2,
 )
 from component1_robustness.gate_models import gate_inputs
 

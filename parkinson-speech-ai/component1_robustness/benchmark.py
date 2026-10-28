@@ -45,7 +45,8 @@ from component1_robustness.config import DEFAULT_CONFIG_PATH, load_config, resol
 from component1_robustness.gate_models import (  # noqa: E402
     PASS, TRAINABLE, get_gate_model, mfcc_means, save_gate_model,
 )
-from component1_robustness.labels import LABELS_CSV_NAME, NO_PREDICTION, RELIABLE  # noqa: E402
+from component1_robustness.features_check import NO_PREDICTION  # noqa: E402
+from component1_robustness.labels import LABELS_CSV_NAME, RELIABLE  # noqa: E402
 from component1_robustness.pipeline import json_safe  # noqa: E402
 from component1_robustness.quality_metrics import compute_quality  # noqa: E402
 

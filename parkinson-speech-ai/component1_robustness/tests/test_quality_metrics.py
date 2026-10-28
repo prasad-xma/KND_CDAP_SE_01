@@ -14,15 +14,13 @@ from component1_robustness.quality_metrics import (
     hnr,
     mean_level_dbfs,
     silence_based_snr,
+    speech_band_contrast_db,
     voice_activity_pct,
 )
+from conftest import as_take, make_vowel, rms
 
 SR = 16000
 SNR_SWEEP_DB = [30, 25, 20, 15, 10, 5, 0]
-
-
-def _rms(x: np.ndarray) -> float:
-    return float(np.sqrt(np.mean(x ** 2)))
 
 
 def _gated_tone(sr: int = SR, duration: float = 5.0, on_s: float = 0.5, off_s: float = 0.5,
@@ -39,18 +37,18 @@ def _add_noise_at_snr(clean: np.ndarray, active: np.ndarray, snr_db: float, seed
     The same seed gives the same noise shape, only its level changes with snr_db.
     """
     noise = np.random.default_rng(seed).standard_normal(len(clean))
-    noise = noise / _rms(noise)
-    signal_rms = _rms(clean[active])
+    noise = noise / rms(noise)
+    signal_rms = rms(clean[active])
     return clean + noise * signal_rms / (10 ** (snr_db / 20))
 
 
 # --- Duration ----------------------------------------------------------------
 
 @pytest.mark.parametrize("seconds,expected", [
-    (2.9, (False, "too_short")),
-    (3.0, (True, "ok")),
-    (15.0, (True, "ok")),
-    (15.1, (False, "too_long")),
+    (1.4, (False, "too_short")),
+    (1.5, (True, "ok")),
+    (5.0, (True, "ok")),
+    (5.1, (False, "too_long")),
 ])
 def test_check_duration_boundaries(seconds, expected):
     cfg = load_config()
@@ -158,8 +156,43 @@ def test_monotonic_estimate_quality_db(signal, tone):
 def test_compute_quality_keys_and_values(tone):
     q = compute_quality(tone, SR)
     assert set(q) == {"duration_s", "level_dbfs", "clipping_pct", "voice_activity_pct",
-                      "estimated_snr_db", "method"}
+                      "speech_band_contrast_db", "estimated_snr_db", "method"}
     assert q["duration_s"] == pytest.approx(5.0)
     assert q["clipping_pct"] == 0.0
     assert q["voice_activity_pct"] == pytest.approx(100.0, abs=1.0)
     assert q["method"] in {"silence_snr", "hnr"}
+
+# --- Speech-band contrast (comp1-A's measure since config v1.5) -----------------
+
+def test_contrast_digital_silence_is_zero():
+    assert speech_band_contrast_db(np.zeros(SR * 4), SR) == 0.0
+
+
+def test_contrast_steady_tone_is_flat(tone):
+    assert speech_band_contrast_db(tone, SR) < 3.0
+
+
+def test_contrast_white_noise_is_flat():
+    noise = 0.05 * np.random.default_rng(0).standard_normal(SR * 4)
+    assert speech_band_contrast_db(noise, SR) < 3.0
+
+
+def test_contrast_take_shaped_vowel_is_high():
+    """Quiet lead-in, voice, quiet tail: the start/stop shows up in the speech band."""
+    assert speech_band_contrast_db(as_take(make_vowel()), SR) > 20.0
+
+
+def test_contrast_ignores_switching_mains_hum():
+    """50 Hz hum switching on and off changes full-band energy a lot but not the 300-3400 Hz band."""
+    t = np.arange(SR * 4) / SR
+    on = 0.5 * (1 + np.sin(2 * np.pi * 0.5 * t))              # smooth on/off every 2 s
+    hum = 0.3 * on * np.sin(2 * np.pi * 50 * t) + 1e-3 * np.random.default_rng(1).standard_normal(len(t))
+    assert speech_band_contrast_db(hum, SR) < 3.0
+
+
+def test_contrast_falls_as_noise_rises():
+    voice = as_take(make_vowel())
+    noise = np.random.default_rng(2).standard_normal(len(voice))
+    scale = np.sqrt(np.mean(voice ** 2) / np.mean(noise ** 2))
+    values = [speech_band_contrast_db(voice + noise * scale / 10 ** (snr / 20), SR) for snr in [30, 20, 10, 0]]
+    assert all(later < earlier for earlier, later in zip(values, values[1:])), values

@@ -7,7 +7,7 @@ import pytest
 from component1_robustness.config import DEFAULT_CONFIG_PATH, load_config
 
 REQUIRED_KEYS = {
-    "seed", "sample_rate", "min_duration_s", "max_duration_s", "reliable_db",
+    "seed", "sample_rate", "min_duration_s", "max_duration_s", "comp1a_pass_db",
     "max_clipping_pct", "min_voice_activity_pct", "enhancement_method",
     "gate_model", "feature_tolerances", "paths", "config_version",
 }
@@ -28,7 +28,7 @@ def test_required_keys_present():
 
 def test_duration_limits():
     cfg = load_config()
-    assert 3.0 <= cfg["min_duration_s"] < cfg["max_duration_s"] == 15.0
+    assert 1.5 <= cfg["min_duration_s"] < cfg["max_duration_s"] == 5.0
 
 
 def test_seed_is_int():
