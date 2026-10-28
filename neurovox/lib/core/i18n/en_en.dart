@@ -9,7 +9,7 @@ const Map<String, String> enEnStrings = {
   'step2Badge': 'STEP 2 OF 2',
   'step1Title': 'Sustained Vowel Task',
   'step1Instruction':
-      'Take a breath and say "aaaa" clearly into the microphone, holding the sound steady. You\'ll record 3 short takes, averaged for a more reliable score.',
+      'Take a breath and say "aaaa" clearly into the microphone, holding the sound steady.',
   'recordingBadgePrefix': 'RECORDING',
   'recordingCapturedNext': 'Recording captured! Tap the mic for the next one.',
   'toggleExtractOn': 'Extract vowel segment first, then measure',
@@ -65,6 +65,7 @@ const Map<String, String> enEnStrings = {
   'modelPrediction': 'Model Prediction:',
   'pdIndicators': 'PD indicators',
   'hcRange': 'Healthy control range',
+  'noVoiceDetected': 'No voiced frames detected - recording may be silent or too quiet. Try again.',
   'modeSegment': 'Mode: vowel segment extracted',
   'modeWhole': 'Mode: whole recording measured as-is',
   'disclaimer': 'Single-component screening signal only, not a diagnosis.',

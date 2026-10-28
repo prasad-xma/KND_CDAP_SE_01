@@ -109,3 +109,19 @@ python -m component2_phonation.predict path/to/recording.wav vowel
   range for this dataset/task; a claimed 90%+ on it should be treated with suspicion
   (almost always means CV wasn't grouped by participant, so the same person's 3 recordings
   leaked across train/test).
+
+## Verification
+
+```
+pytest component2_phonation/tests
+```
+
+All synthetic audio (a harmonic tone standing in for a clean sustained vowel, plus
+digital silence) - no real dataset or recording is touched.
+
+| Kind | Where |
+|---|---|
+| Known-answer synthetic signals | `test_features.py` (mean F0 within 5Hz of the known tone, jitter/shimmer near zero and HNR high for a perfectly periodic tone) |
+| Segmentation correctness | `test_vowel_segmentation.py`: silence has no segments, a continuous tone is one segment spanning the clip, two separated bursts are two segments sorted longest-first, cropping matches the requested window |
+| Model inference sanity | `test_predict.py`: a valid prediction + features dict for a vowel tone, `ValueError` on silence, `model_path_for()` resolves to the file the API actually loads |
+| API contract | `test_api.py` (FastAPI `TestClient`): `/health`, both modes of `/phonation/screen` (vowel-segment vs. whole-recording, each picking the matching model), unsupported extension -> 400, silent recording -> 422, `.m4a` upload, temp file cleanup, `/phonation/screen_vowel_multi` averaging matches a hand recomputation, `/phonation/screen_dual` fusion matches a hand recomputation |
