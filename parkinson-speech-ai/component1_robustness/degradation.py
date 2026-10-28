@@ -22,18 +22,13 @@ Length: every function returns an array the same length as its input.
 import numpy as np
 from scipy.signal import butter, lfilter
 
-EPS = 1e-12
-
-
-def _rms(y: np.ndarray) -> float:
-    """Root-mean-square level of a signal."""
-    return float(np.sqrt(np.mean(y ** 2) + EPS))
+from component1_robustness.quality_metrics import EPS, rms_level
 
 
 def _scale_to_snr(y: np.ndarray, noise: np.ndarray, snr_db: float) -> np.ndarray:
-    """Scale noise so that rms(y) / rms(noise) equals snr_db (in dB)."""
-    target_noise_rms = _rms(y) / (10 ** (snr_db / 20))
-    return noise * (target_noise_rms / _rms(noise))
+    """Scale noise so that rms_level(y) / rms_level(noise) equals snr_db (in dB)."""
+    target_noise_rms = rms_level(y) / (10 ** (snr_db / 20))
+    return noise * (target_noise_rms / rms_level(noise))
 
 
 def add_white_noise(y: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
@@ -54,7 +49,7 @@ def add_synthetic_reverb(y: np.ndarray, sr: int, rt60_sec: float,
     ir = rng.standard_normal(ir_len) * decay
     ir = ir / (np.sqrt(np.sum(ir ** 2)) + EPS)
     wet = np.convolve(y, ir, mode="full")[: len(y)]  # trim the tail: same length as input
-    wet = wet * (_rms(y) / _rms(wet))
+    wet = wet * (rms_level(y) / rms_level(wet))
     return 0.6 * y + 0.4 * wet
 
 

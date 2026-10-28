@@ -8,6 +8,7 @@ import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
 import 'live_mic_test_screen.dart';
+import '../features/acoustic_noise/guided_test_screen.dart';
 
 const Color _bg = Color(0xFF0A0E14);
 const Color _surfaceRaised = Color(0xFF1A2330);
@@ -234,7 +235,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => GuidedTestScreen(
+                        onPhonationResult: (result) => setState(() => _phonationResult = result),
+                      ),
+                    ),
+                  ),
                   icon: const Icon(Icons.mic_none_rounded, color: _accentDim, size: 20),
                   label: Text(
                     tr('startTestButton'),

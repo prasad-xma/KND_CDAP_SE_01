@@ -13,18 +13,10 @@ from component1_robustness.degradation import (
     simulate_compression,
 )
 
+from conftest import rms, true_snr_db
+
 SNR_TOL_DB = 0.01
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
-
-
-def _rms(x: np.ndarray) -> float:
-    return float(np.sqrt(np.mean(x ** 2)))
-
-
-def _true_snr_db(clean: np.ndarray, noisy: np.ndarray) -> float:
-    """SNR from the known clean part and the known added part (noisy - clean)."""
-    added = noisy - clean
-    return 20 * np.log10(_rms(clean) / _rms(added))
 
 
 # --- SNR known answers -------------------------------------------------------
@@ -32,7 +24,7 @@ def _true_snr_db(clean: np.ndarray, noisy: np.ndarray) -> float:
 @pytest.mark.parametrize("snr_db", [0, 5, 10, 20])
 def test_white_noise_exact_snr(tone, snr_db):
     noisy = add_white_noise(tone, snr_db, np.random.default_rng(42))
-    assert _true_snr_db(tone, noisy) == pytest.approx(snr_db, abs=SNR_TOL_DB)
+    assert true_snr_db(tone, noisy) == pytest.approx(snr_db, abs=SNR_TOL_DB)
 
 
 # --- Gain known answer -------------------------------------------------------
@@ -40,7 +32,7 @@ def test_white_noise_exact_snr(tone, snr_db):
 @pytest.mark.parametrize("gain_db", [-6, -12, 3])
 def test_apply_gain_exact_rms_change(tone, gain_db):
     out = apply_gain(tone, gain_db)
-    change_db = 20 * np.log10(_rms(out) / _rms(tone))
+    change_db = 20 * np.log10(rms(out) / rms(tone))
     assert change_db == pytest.approx(gain_db, abs=0.01)
 
 

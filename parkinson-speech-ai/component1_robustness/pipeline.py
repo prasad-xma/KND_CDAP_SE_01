@@ -3,7 +3,7 @@
 run_gate(audio_path, task, config) runs, in order:
     ensure_wav -> load (mono, config sample_rate) -> duration check (stop early on fail)
     -> quality before -> features before -> enhance -> quality after -> features after
-    -> compare_features -> gate model decision
+    -> compare_features -> gate model decision -> voice presence check (voice_check.py)
 
 and writes to outputs/component1/<clip_id>/:
     raw.wav, enhanced.wav, waveform.png, spectrogram.png, report.json
@@ -14,6 +14,10 @@ Which audio is judged and forwarded:
     features not preserved -> enhancement altered the biomarkers, so the gate judges RAW audio;
                               on PASS raw.wav is forwarded
     FAIL                   -> nothing is forwarded; user_message says what to do
+
+Voice presence (voice_check.py): if the raw take is flat in the speech band (nobody
+started or stopped speaking), a PASS or quality FAIL becomes "no_voice" in a quiet room,
+or "low_snr" when loud steady noise drowned the voice.
 
 The report has no timestamps, so the same input and config give byte-identical report.json.
 """
@@ -37,6 +41,7 @@ from component1_robustness.gate_models import (
 )
 from component1_robustness.quality_metrics import check_duration
 from component1_robustness.visualise import plot_spectrograms, plot_waveforms
+from component1_robustness.voice_check import OVERRIDABLE_REASONS, check_voice_presence
 
 TASKS = {"vowel": "component2", "ddk": "component3"}
 # Biomarkers that must survive enhancement: the features of the component that receives the audio.
@@ -49,8 +54,8 @@ WAV_SUBTYPE = "PCM_24"
 
 USER_MESSAGES = {
     "ok": "Recording accepted.",
-    "too_short": "The recording is too short. Please record for at least {min:.0f} seconds.",
-    "too_long": "The recording is too long. Please keep it under {max:.0f} seconds.",
+    "too_short": "The recording is too short. Please record for at least {min:g} seconds.",
+    "too_long": "The recording is too long. Please keep it under {max:g} seconds.",
     "clipped": "The recording is distorted (too loud). Please hold the phone a little further away and record again.",
     "no_voice": "No voice was detected. Please make sure you are speaking into the microphone and record again.",
     "low_snr": "There is too much background noise. Please record again in a quieter room.",
@@ -64,7 +69,7 @@ REPORT_SCHEMA = {
         "clip_id", "task", "gate_model", "decision", "quality_score", "reason", "duration_s",
         "quality_before", "quality_after", "features_before", "features_after", "feature_preserved",
         "audio_for_next_stage", "audio_choice", "next_component", "user_message", "input_sha256",
-        "config_version",
+        "config_version", "voice_check",
     ],
     "properties": {
         "clip_id": {"type": "string", "minLength": 1},
@@ -87,6 +92,7 @@ REPORT_SCHEMA = {
         "user_message": {"type": "string", "minLength": 1},
         "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "config_version": {"type": "string"},
+        "voice_check": {"type": ["object", "null"]},
     },
 }
 
@@ -177,6 +183,7 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
         "features_before": None, "features_after": None, "feature_preserved": None,
         "audio_for_next_stage": None, "audio_choice": None, "next_component": None,
         "user_message": "", "input_sha256": input_sha256, "config_version": str(config["config_version"]),
+        "voice_check": None,
     }
 
     # Duration first: a clip of the wrong length is not worth enhancing.
@@ -201,6 +208,13 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
     judged = quality_after if use_enhanced else quality_before
     decision = gate.predict(judged)
 
+    # Voice presence, on the raw audio: the gate judges quality, not whether anyone is
+    # speaking. A flat take is "no_voice" (quiet room) or "low_snr" (loud steady noise),
+    # replacing a PASS or a quality FAIL. Duration/clipping/precheck reasons are kept.
+    voice_check = check_voice_presence(quality_before, config)
+    if not voice_check["passed"] and decision["reason"] in OVERRIDABLE_REASONS:
+        decision = {"decision": FAIL, "quality_score": 0.0, "reason": voice_check["fail_reason"]}
+
     before = (quality_before["estimated_snr_db"], quality_before["method"])
     after = (quality_after["estimated_snr_db"], quality_after["method"])
     plot_waveforms(y_raw, y_enh, sr, out_dir / "waveform.png", before=before, after=after)
@@ -210,7 +224,7 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
         decision=decision["decision"], quality_score=decision["quality_score"], reason=decision["reason"],
         quality_before=quality_before, quality_after=quality_after,
         features_before=features_before, features_after=features_after, feature_preserved=preservation,
-        user_message=user_message(decision["reason"], config),
+        user_message=user_message(decision["reason"], config), voice_check=voice_check,
     )
     if decision["decision"] == PASS:
         report.update(

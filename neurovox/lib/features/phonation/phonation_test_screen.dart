@@ -12,6 +12,7 @@ import 'package:record/record.dart';
 import '../../core/i18n/language_controller.dart';
 import '../../core/models/phonation_result.dart';
 import '../../core/services/phonation_api_service.dart';
+import '../acoustic_noise/quality_gate.dart';
 
 const Color _bg = Color(0xFF0A0E14);
 const Color _surface = Color(0xFF131A24);
@@ -144,6 +145,28 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     });
   }
 
+  /// Component 1 quality gate for one vowel take. Throws QualityGateRejected
+  /// (toString() = message for the user) when the take should be re-recorded.
+  Future<void> _gateVowelTake(
+    VoidCallback refreshModal, {
+    String? filePath,
+    List<int>? bytes,
+  }) async {
+    if (!QualityGate.enabled) return;
+    setState(() => _isProcessing = true);
+    refreshModal();
+    try {
+      await QualityGate.check(
+        task: QualityTask.vowel,
+        filePath: filePath,
+        bytes: bytes,
+        filename: 'vowel_take.wav',
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _resetStepState() async {
     _cancelVowelCountdown();
     if (!kIsWeb && _vowelFilePath != null) {
@@ -169,6 +192,11 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     BuildContext modalContext,
     void Function(void Function()) setModalState,
   ) async {
+    // Created before any await, so the gate can redraw the modal safely later.
+    void refreshModal() {
+      if (modalContext.mounted) setModalState(() {});
+    }
+
     _cancelVowelCountdown();
     final path = await _recorder.stop();
     setState(() => _isRecording = false);
@@ -191,12 +219,21 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
               'full duration.',
             );
           }
+          // Component 1: gate this take before keeping it.
+          await _gateVowelTake(refreshModal, bytes: bytes);
           _vowelMultiByteLists.add(bytes);
         } else {
+          await _gateVowelTake(refreshModal, filePath: path);
           _vowelMultiFilePaths.add(path);
         }
       } catch (e) {
+        // A rejected take is discarded; the user re-records the same take.
+        if (!kIsWeb && e is QualityGateRejected) {
+          final f = File(path);
+          if (await f.exists()) await f.delete();
+        }
         setState(() => _recordError = e.toString());
+        refreshModal();
         return;
       }
 

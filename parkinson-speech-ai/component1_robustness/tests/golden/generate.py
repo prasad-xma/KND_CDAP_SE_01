@@ -23,7 +23,7 @@ for p in (str(REPO_ROOT), str(TESTS_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from conftest import make_vowel  # noqa: E402
+from conftest import as_take, make_vowel  # noqa: E402
 from component1_robustness.config import load_config  # noqa: E402
 from component1_robustness.pipeline import run_gate  # noqa: E402
 
@@ -36,9 +36,11 @@ TASK = "vowel"
 
 
 def _voice(duration_s: float, rng: np.random.Generator) -> np.ndarray:
-    """150 Hz harmonic vowel with a 4 Hz loudness wobble and a faint hiss (about -50 dB)."""
+    """150 Hz harmonic vowel with a 4 Hz loudness wobble and a faint hiss (about -50 dB),
+    shaped like a real take: quiet for the first 0.5 s and last 0.3 s (config v1.5 judges
+    the speech-band start/stop contrast, so a voice with no start looks like steady hum)."""
     t = np.arange(int(duration_s * SR)) / SR
-    y = make_vowel(duration_s=duration_s) * (1 + 0.05 * np.sin(2 * np.pi * 4 * t))
+    y = as_take(make_vowel(duration_s=duration_s) * (1 + 0.05 * np.sin(2 * np.pi * 4 * t)), sr=SR, floor=0.0)
     return y + 1e-3 * rng.standard_normal(len(y))
 
 
