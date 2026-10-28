@@ -4,6 +4,7 @@ run_gate(audio_path, task, config) runs, in order:
     ensure_wav -> load (mono, config sample_rate) -> duration check (stop early on fail)
     -> quality before -> features before -> enhance -> quality after -> features after
     -> compare_features -> gate model decision -> voice presence check (voice_check.py)
+    -> task check (task_check.py, when enabled in the config)
 
 and writes to outputs/component1/<clip_id>/:
     raw.wav, enhanced.wav, waveform.png, spectrogram.png, report.json
@@ -18,6 +19,12 @@ Which audio is judged and forwarded:
 Voice presence (voice_check.py): if the raw take is flat in the speech band (nobody
 started or stopped speaking), a PASS or quality FAIL becomes "no_voice" in a quiet room,
 or "low_snr" when loud steady noise drowned the voice.
+
+Task check (task_check.py, config task_check.enabled): a good-quality take that is not
+the task (e.g. speech or gibberish instead of one steady "aaaa") becomes "wrong_task".
+It only replaces a PASS: a take that already failed on quality keeps that message, since
+it has to be re-recorded anyway. Without a task_check section the report has no
+"task_check" key, so older configs give exactly the same report.json as before.
 
 The report has no timestamps, so the same input and config give byte-identical report.json.
 """
@@ -40,6 +47,7 @@ from component1_robustness.gate_models import (
     FAIL, PASS, gate_inputs, load_gate_model,
 )
 from component1_robustness.quality_metrics import check_duration
+from component1_robustness.task_check import check_task
 from component1_robustness.visualise import plot_spectrograms, plot_waveforms
 from component1_robustness.voice_check import OVERRIDABLE_REASONS, check_voice_presence
 
@@ -60,6 +68,7 @@ USER_MESSAGES = {
     "no_voice": "No voice was detected. Please make sure you are speaking into the microphone and record again.",
     "low_snr": "There is too much background noise. Please record again in a quieter room.",
     "low_quality": "The recording quality is too low. Please record again in a quieter room, close to the microphone.",
+    "wrong_task": "We didn't hear one steady \"aaaa\". Please take a breath and say \"aaaa\" in one long, steady sound until the timer ends.",
 }
 
 REPORT_SCHEMA = {
@@ -93,6 +102,7 @@ REPORT_SCHEMA = {
         "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "config_version": {"type": "string"},
         "voice_check": {"type": ["object", "null"]},
+        "task_check": {"type": ["object", "null"]},   # optional: only when task_check is enabled
     },
 }
 
@@ -215,6 +225,12 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
     if not voice_check["passed"] and decision["reason"] in OVERRIDABLE_REASONS:
         decision = {"decision": FAIL, "quality_score": 0.0, "reason": voice_check["fail_reason"]}
 
+    # Task check, on the raw audio: a good-quality take that is not the task (speech or
+    # gibberish instead of one held "aaaa") is "wrong_task". Only a PASS is replaced.
+    task_check = check_task(y_raw, sr, task, config)
+    if task_check is not None and not task_check["passed"] and decision["decision"] == PASS:
+        decision = {"decision": FAIL, "quality_score": 0.0, "reason": task_check["fail_reason"]}
+
     before = (quality_before["estimated_snr_db"], quality_before["method"])
     after = (quality_after["estimated_snr_db"], quality_after["method"])
     plot_waveforms(y_raw, y_enh, sr, out_dir / "waveform.png", before=before, after=after)
@@ -226,6 +242,8 @@ def run_gate(audio_path: str | Path, task: str, config: dict, gate=None) -> dict
         features_before=features_before, features_after=features_after, feature_preserved=preservation,
         user_message=user_message(decision["reason"], config), voice_check=voice_check,
     )
+    if task_check is not None:
+        report["task_check"] = task_check
     if decision["decision"] == PASS:
         report.update(
             audio_choice="enhanced" if use_enhanced else "raw",

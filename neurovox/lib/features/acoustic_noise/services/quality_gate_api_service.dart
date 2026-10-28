@@ -63,7 +63,6 @@ class QualityGateApiService {
     if (response.statusCode == 422) {
       throw QualityGateRejected(QualityReport.fromJson(const {
         'decision': QualityReport.fail,
-        'reason': 'unreadable_audio',
         'user_message': 'The recording could not be read. Please record again.',
       }));
     }
