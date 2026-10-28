@@ -1,0 +1,48 @@
+{
+  "note": "Trained ONLY on phone_recorded_PD + phone_recorded_Healthy (81 recordings, all captured via phone mic re-recording of PD_AH/HC_AH playback). No AH/Italian/Kaggle/local_healthy data included.",
+  "best_params": {
+    "select__k": "7",
+    "clf__gamma": "scale",
+    "clf__C": "100",
+    "clf": "SVC(class_weight='balanced', probability=True, random_state=42)"
+  },
+  "cv_accuracy": 0.7,
+  "cv_balanced_accuracy": 0.6839285714285714,
+  "classification_report": {
+    "HC": {
+      "precision": 0.7761194029850746,
+      "recall": 0.7428571428571429,
+      "f1-score": 0.7591240875912408,
+      "support": 70.0
+    },
+    "PD": {
+      "precision": 0.5813953488372093,
+      "recall": 0.625,
+      "f1-score": 0.6024096385542169,
+      "support": 40.0
+    },
+    "accuracy": 0.7,
+    "macro avg": {
+      "precision": 0.678757375911142,
+      "recall": 0.6839285714285714,
+      "f1-score": 0.6807668630727288,
+      "support": 110.0
+    },
+    "weighted avg": {
+      "precision": 0.7053106560222144,
+      "recall": 0.7,
+      "f1-score": 0.7021370152141413,
+      "support": 110.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      52,
+      18
+    ],
+    [
+      15,
+      25
+    ]
+  ]
+}

@@ -48,6 +48,7 @@ class PhonationDualResult {
   final double probabilityHc;
   final PhonationResult vowelTask;
   final PhonationResult? phraseTask;
+  final bool noVoiceDetected;
 
   const PhonationDualResult({
     required this.prediction,
@@ -55,6 +56,7 @@ class PhonationDualResult {
     required this.probabilityHc,
     required this.vowelTask,
     this.phraseTask,
+    this.noVoiceDetected = false,
   });
 
   factory PhonationDualResult.fromJson(Map<String, dynamic> json) {
@@ -66,6 +68,17 @@ class PhonationDualResult {
       phraseTask: json['phrase_task'] != null
           ? PhonationResult.fromJson(json['phrase_task'] as Map<String, dynamic>)
           : null,
+    );
+  }
+
+  factory PhonationDualResult.noVoiceDetected() {
+    const placeholder = PhonationResult(prediction: 'PD', probabilityPd: 1.0, probabilityHc: 0.0);
+    return const PhonationDualResult(
+      prediction: 'PD',
+      probabilityPd: 1.0,
+      probabilityHc: 0.0,
+      vowelTask: placeholder,
+      noVoiceDetected: true,
     );
   }
 

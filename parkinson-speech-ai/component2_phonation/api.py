@@ -1,9 +1,7 @@
 """Standalone HTTP server for Component 2 (phonation), independent of
 Components 1/3 so it can be built and demoed on its own.
 
-Wraps `predict.predict()` using the best real result this component has
-(the vowel-combined tuned model, 82.7% CV accuracy / 82.8% balanced
-accuracy on 126 participants) behind one endpoint, so the Flutter app's
+Wraps `predict.predict()` behind one endpoint, so the Flutter app's
 `features/phonation/` screen has something to call.
 
 Run from `parkinson-speech-ai/`:
@@ -25,7 +23,7 @@ from .predict import REPO_ROOT, predict
 from .vowel_segmentation import extract_longest_vowel_clip
 
 VOWEL_MODEL_PATH = os.path.join(
-    REPO_ROOT, "models", "component2_phonation_vowel_combined_tuned.joblib"
+    REPO_ROOT, "models", "component2_phonation_phone_only.joblib"
 )
 READTEXT_MODEL_PATH = os.path.join(
     REPO_ROOT, "models", "component2_phonation_readtext_rf.joblib"

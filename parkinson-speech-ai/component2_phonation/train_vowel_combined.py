@@ -20,6 +20,9 @@ import pandas as pd
 from .vowel_dataset import build_vowel_features, ensure_extracted as ensure_ah_extracted
 from .italian_pvs_dataset import build_italian_vowel_features, ensure_extracted as ensure_italian_extracted
 from .kaggle_voice_dataset import build_kaggle_vowel_features, ensure_extracted as ensure_kaggle_extracted
+from .local_healthy_dataset import build_local_healthy_features
+from .phone_recorded_pd_dataset import build_phone_recorded_pd_features
+from .phone_recorded_healthy_dataset import build_phone_recorded_healthy_features
 from .features import FEATURE_NAMES
 from common.model_evaluation import run_baseline, REPO_ROOT
 
@@ -27,6 +30,9 @@ RESULTS_DIR = os.path.join(REPO_ROOT, "results", "component2_phonation")
 AH_FEATURES_CSV = os.path.join(RESULTS_DIR, "vowel_a_features.csv")
 ITALIAN_FEATURES_CSV = os.path.join(RESULTS_DIR, "italian_pvs_vowel_features.csv")
 KAGGLE_FEATURES_CSV = os.path.join(RESULTS_DIR, "kaggle_voice_features.csv")
+LOCAL_HEALTHY_FEATURES_CSV = os.path.join(RESULTS_DIR, "local_healthy_features.csv")
+PHONE_RECORDED_PD_FEATURES_CSV = os.path.join(RESULTS_DIR, "phone_recorded_pd_features.csv")
+PHONE_RECORDED_HEALTHY_FEATURES_CSV = os.path.join(RESULTS_DIR, "phone_recorded_healthy_features.csv")
 
 
 def _load_ah():
@@ -59,6 +65,33 @@ def _load_kaggle():
     return df
 
 
+def _load_local_healthy():
+    if os.path.exists(LOCAL_HEALTHY_FEATURES_CSV):
+        print(f"Loading cached local-healthy features from {LOCAL_HEALTHY_FEATURES_CSV}")
+        return pd.read_csv(LOCAL_HEALTHY_FEATURES_CSV)
+    df = build_local_healthy_features()
+    df.to_csv(LOCAL_HEALTHY_FEATURES_CSV, index=False)
+    return df
+
+
+def _load_phone_recorded_pd():
+    if os.path.exists(PHONE_RECORDED_PD_FEATURES_CSV):
+        print(f"Loading cached phone-recorded-PD features from {PHONE_RECORDED_PD_FEATURES_CSV}")
+        return pd.read_csv(PHONE_RECORDED_PD_FEATURES_CSV)
+    df = build_phone_recorded_pd_features()
+    df.to_csv(PHONE_RECORDED_PD_FEATURES_CSV, index=False)
+    return df
+
+
+def _load_phone_recorded_healthy():
+    if os.path.exists(PHONE_RECORDED_HEALTHY_FEATURES_CSV):
+        print(f"Loading cached phone-recorded-healthy features from {PHONE_RECORDED_HEALTHY_FEATURES_CSV}")
+        return pd.read_csv(PHONE_RECORDED_HEALTHY_FEATURES_CSV)
+    df = build_phone_recorded_healthy_features()
+    df.to_csv(PHONE_RECORDED_HEALTHY_FEATURES_CSV, index=False)
+    return df
+
+
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -70,10 +103,18 @@ def main():
     italian_df = _load_italian()
     italian_df["source"] = "Italian_PVS"
 
-    kaggle_df = _load_kaggle()
-    kaggle_df["source"] = "Kaggle_UCI"
+    local_healthy_df = _load_local_healthy()
+    local_healthy_df["source"] = "Local_Healthy"
 
-    combined = pd.concat([ah_df, italian_df, kaggle_df], ignore_index=True)
+    phone_pd_df = _load_phone_recorded_pd()
+    phone_pd_df["source"] = "Phone_Recorded_PD"
+
+    phone_healthy_df = _load_phone_recorded_healthy()
+    phone_healthy_df["source"] = "Phone_Recorded_Healthy"
+
+    combined = pd.concat(
+        [ah_df, italian_df, local_healthy_df, phone_pd_df, phone_healthy_df], ignore_index=True
+    )
 
     print(f"\nCombined total recordings: {len(combined)}")
     print(f"PD: {sum(combined['label'] == 1)}  HC: {sum(combined['label'] == 0)}")
