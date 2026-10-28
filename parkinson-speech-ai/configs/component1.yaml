@@ -2,7 +2,8 @@
 # Fixed by the developer; the end user never edits this file.
 # All paths are relative to the repo root (parkinson-speech-ai/).
 
-config_version: v1.7                 # v1.7: task check (one steady "aaaa", not speech/gibberish) -> "wrong_task".
+config_version: v1.8                 # v1.8: enhancement = 80 Hz high-pass (was noisereduce_nonstationary); enhancement policy section.
+                                     # v1.7: task check (one steady "aaaa", not speech/gibberish) -> "wrong_task".
                                      # v1.6: labels by Component 2 answer (not placeholder feature tolerances); gate threshold tuned for <= 10% good recordings rejected.
                                      # v1.5: comp1-A on speech-band contrast (replaces reliable_db SNR/HNR rule); voice check on contrast + level.
                                      # v1.4: max 5 s. v1.3: 1.5-8 s. v1.2: voice check (A+B). v1.1: min 2 s
@@ -41,11 +42,31 @@ task_check:
     min_voiced_share: 0.5        # that stretch / all voiced time in the take
 
 # Enhancement and gate model
-enhancement_method: noisereduce_nonstationary
+# Enhancement. v1.8: 80 Hz high-pass, chosen by compare_enhancement.py (81 real vowels,
+# biomarkers vs the CLEAN original, no Component 2): it is the only method that never
+# moved a clean take (SI-SDR 34 dB, level change 0.00 dB) and fully removed hum/rumble
+# (SI-SDR 4 -> 32 dB, jitter/shimmer/HNR back to clean in 100% of clips). The old
+# noisereduce_nonstationary cut the voice level by ~10-12 dB on EVERY take, clean included.
+# Nothing tested restored all biomarkers under broadband (white) noise, so heavy noise is
+# left to the gate to reject, not "repaired".
+enhancement_method: highpass
 gate_model: comp1-B-svm           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
 comp1a_score_span_db: 20.0    # comp1-A score: comp1a_pass_db -> 50, +/- this many dB -> 100 / 0
 gate_pass_probability: 0.2392    # comp1-B: PASS when P(reliable) >= this. Overwritten by the benchmark when tune_threshold is on
 n_mfcc: 13                    # MFCC means used by comp1-B
+
+# Enhancement policy (pipeline.enhance_take). Remove this section for the old behaviour
+# (always run enhancement_method, no "enhancement" key in report.json).
+enhancement:
+  # Skip processing when the raw take's speech-band contrast is at least this (dB); null = never skip.
+  # null for the high-pass: it is harmless on clean takes, and hum/rumble lies BELOW the speech
+  # band, so hummy takes still show high contrast (14-119 dB) and a skip rule would block the fix.
+  # If enhancement_method goes back to noisereduce, use ~15: real app takes were 8.5-29.5 dB.
+  skip_if_contrast_db_at_least: null
+  highpass_hz: 80.0              # hum 50 Hz and rumble below; voice F0 starts at 70 Hz
+  prop_decrease: 1.0             # noisereduce only: share of the noise estimate removed
+  noise_sample: true             # noisereduce_stationary only: noise profile from the take's non-voiced parts
+  fallback_method: highpass      # used when the take has no non-voiced part to sample
 
 # Max allowed relative change (|after - before| / |before|) for a
 # biomarker to count as "preserved" after enhancement.

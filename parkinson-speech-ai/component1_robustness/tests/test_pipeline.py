@@ -138,10 +138,13 @@ def test_duration_fail_stops_before_enhancement(tmp_path, monkeypatch, seconds, 
     assert {p.name for p in folder.iterdir()} == {"raw.wav", "report.json"}
 
 
+# The two preservation tests switch the skip-when-clean policy off (enhancement=None):
+# they test the preservation check itself, which a skipped (unprocessed) take never reaches.
+
 def test_preserved_forwards_enhanced(tmp_path):
     """Enhancement 'none' changes nothing, so features are preserved and enhanced.wav is sent."""
     report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
-                      gate_config(tmp_path, enhancement_method="none"))
+                      gate_config(tmp_path, enhancement_method="none", enhancement=None))
     assert report["feature_preserved"]["preserved"] is True
     assert report["audio_choice"] == "enhanced"
     assert report["audio_for_next_stage"].endswith("enhanced.wav")
@@ -151,11 +154,33 @@ def test_not_preserved_forwards_raw(tmp_path):
     """A tolerance no real change can meet: any enhancement 'alters biomarkers', so raw.wav is sent."""
     tight = {k: 1e-12 for k in load_config()["feature_tolerances"]}
     report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
-                      gate_config(tmp_path, enhancement_method="wiener", feature_tolerances=tight))
+                      gate_config(tmp_path, enhancement_method="wiener", feature_tolerances=tight,
+                                  enhancement=None))
     assert report["decision"] == "PASS"
     assert report["feature_preserved"]["preserved"] is False
     assert report["audio_choice"] == "raw"
     assert report["audio_for_next_stage"].endswith("raw.wav")
+
+
+def test_clean_take_is_not_processed(tmp_path):
+    """Contrast above skip_if_contrast_db_at_least: no enhancement, raw.wav is forwarded."""
+    policy = {"skip_if_contrast_db_at_least": -1000.0}   # every take counts as clean
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="wiener", enhancement=policy))
+    assert report["enhancement"]["applied"] is False
+    assert report["enhancement"]["method_used"] == "none"
+    assert report["quality_after"] == report["quality_before"]
+    if report["decision"] == "PASS":
+        assert report["audio_choice"] == "raw"
+
+
+def test_noisy_take_is_processed(tmp_path):
+    """Contrast below the threshold: the configured method runs and the report says so."""
+    policy = {"skip_if_contrast_db_at_least": 1000.0}    # no take counts as clean
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="highpass", enhancement=policy))
+    assert report["enhancement"]["applied"] is True
+    assert report["enhancement"]["method_used"] == "highpass"
 
 
 def test_forwarded_audio_is_standardised(vowel_run):
