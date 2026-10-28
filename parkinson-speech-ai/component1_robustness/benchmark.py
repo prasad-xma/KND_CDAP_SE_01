@@ -17,10 +17,26 @@ Protocol (identical for every model):
     downstream_accuracy          Component 2 accuracy (PD/HC) on the clips the gate PASSED
     pass_rate                    share of clips passed
 
+Threshold tuning (config benchmark.tune_threshold, v1.6). Priority: GOOD RECORDINGS MUST PASS.
+    For each model, the pass threshold on its 0-1 score (P(reliable) for comp1-B, the
+    contrast score for comp1-A) is set from the pooled out-of-fold scores of the
+    development set: the HIGHEST threshold whose false_reject_rate <= target_false_reject_rate.
+    Highest, because among thresholds that meet the false-reject target it lets through
+    the fewest unreliable clips. Fold and test metrics are then computed at that threshold.
+    Hard-rule failures (clipping, no voice, duration) stay FAIL whatever the threshold.
+    The held-out test set never influences the threshold, so its numbers stay honest.
+
 Selection (config benchmark.selection_order), lexicographic with a tolerance:
-    eligible: false_reject_rate <= max_false_reject_rate (a gate rejecting everything has FAR 0)
+    eligible: false_reject_rate <= target_false_reject_rate when tuning (pooled out-of-fold),
+              otherwise <= max_false_reject_rate (a gate rejecting everything has FAR 0)
     then lowest FAR -> highest downstream accuracy -> highest F1 -> fastest (input-cost tier)
     any remaining tie -> the simpler model.
+    So with tuning on, the question is: "at <= 10% good recordings rejected, which gate
+    lets the fewest bad recordings through?"
+
+Write-back: gate_model, plus the tuned threshold of the winner (gate_pass_probability
+for comp1-B, comp1a_pass_db for comp1-A). Targets met / not met are reported in
+selected_gate_model.json ("targets").
 
 Usage (from parkinson-speech-ai/):
     python -m component1_robustness.benchmark
@@ -45,6 +61,7 @@ from component1_robustness.config import DEFAULT_CONFIG_PATH, load_config, resol
 from component1_robustness.gate_models import (  # noqa: E402
     PASS, TRAINABLE, get_gate_model, mfcc_means, save_gate_model,
 )
+from component1_robustness.voice_check import OVERRIDABLE_REASONS  # noqa: E402
 from component1_robustness.features_check import NO_PREDICTION  # noqa: E402
 from component1_robustness.labels import LABELS_CSV_NAME, RELIABLE  # noqa: E402
 from component1_robustness.pipeline import json_safe  # noqa: E402
@@ -159,16 +176,68 @@ def _eval_config(config: dict) -> dict:
     return dict(config, min_duration_s=0.0, max_duration_s=float("inf"))
 
 
-def _predict_rows(model, rows: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, float]:
-    """(passed, score 0-1, mean seconds per prediction) for every row."""
-    passed, score = [], []
+def _predict_rows(model, rows: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
+    """(passed, score 0-1, mean seconds per prediction, hard_fail) for every row.
+
+    hard_fail: the row failed a hard rule (duration, clipping, no voice), not the model's
+    own judgement, so no threshold can make it pass.
+    """
+    passed, score, hard_fail = [], [], []
     start = time.perf_counter()
     for quality in rows.to_dict(orient="records"):
         result = model.predict(quality)
         passed.append(result["decision"] == PASS)
         score.append(result["quality_score"] / 100.0)
+        hard_fail.append(result["reason"] not in OVERRIDABLE_REASONS)
     seconds = (time.perf_counter() - start) / max(len(rows), 1)
-    return np.array(passed), np.array(score), seconds
+    return np.array(passed), np.array(score), seconds, np.array(hard_fail)
+
+
+# --- Threshold tuning ---------------------------------------------------------------------
+
+def tuning_enabled(config: dict) -> bool:
+    bench = config["benchmark"]
+    return bool(bench.get("tune_threshold")) and bench.get("target_false_reject_rate") is not None
+
+
+def pass_at(score, hard_fail, threshold: float) -> np.ndarray:
+    """PASS = no hard-rule failure AND score >= threshold."""
+    return ~np.asarray(hard_fail, bool) & (np.asarray(score, float) >= threshold)
+
+
+def tune_threshold(score, reliable, hard_fail, target_frr: float) -> float:
+    """Highest threshold whose false_reject_rate <= target_frr (fewest false accepts at that FRR).
+
+    Candidates are the scores of reliable clips. If even the lowest one misses the target
+    (hard-rule failures alone exceed it), the lowest is returned: everything the hard rules
+    allow then passes.
+    """
+    score, reliable = np.asarray(score, float), np.asarray(reliable, bool)
+    hard_fail = np.asarray(hard_fail, bool)
+    candidates = np.unique(score[reliable & ~hard_fail])
+    if len(candidates) == 0 or reliable.sum() == 0:
+        return 0.0
+    for threshold in candidates[::-1]:                       # highest first
+        frr = (~pass_at(score[reliable], hard_fail[reliable], threshold)).mean()
+        if frr <= target_frr:
+            return float(threshold)
+    return float(candidates[0])
+
+
+def threshold_to_config(name: str, threshold: float, config: dict) -> tuple[str, float]:
+    """(config key, value) that makes the live gate use this 0-1 score threshold.
+
+    comp1-B: gate_pass_probability = threshold.
+    comp1-A: the score is 50 + 50 * (contrast - pass_db) / span, so the matching
+             comp1a_pass_db = pass_db + span * (100 * threshold - 50) / 50.
+    Rounded DOWN (4 decimals), so a clip exactly at the threshold still passes.
+    """
+    if name == "comp1-A":
+        pass_db = float(config.get("comp1a_pass_db", 10.0))
+        span = float(config["comp1a_score_span_db"])
+        value = pass_db + span * (100.0 * threshold - 50.0) / 50.0
+        return "comp1a_pass_db", float(np.floor(value * 1e4) / 1e4)
+    return "gate_pass_probability", float(np.floor(threshold * 1e4) / 1e4)
 
 
 def _metrics_for(table: pd.DataFrame, index, passed, score) -> dict:
@@ -185,19 +254,35 @@ def _fit(name: str, config: dict, table: pd.DataFrame, index):
 def evaluate_model(name, table, dev_index, test_index, folds, config) -> dict:
     """CV fold metrics, out-of-fold predictions and held-out test metrics for one model."""
     cfg = _eval_config(config)
-    fold_metrics, oof, predict_times = [], [], []
+    fold_preds, predict_times = [], []
     for train_idx, val_idx in folds:
         model = _fit(name, cfg, table, train_idx)
-        passed, score, seconds = _predict_rows(model, table.loc[val_idx])
-        fold_metrics.append(_metrics_for(table, val_idx, passed, score))
-        oof.append(pd.DataFrame({"row": val_idx, "passed": passed, "score": score}))
+        passed, score, seconds, hard_fail = _predict_rows(model, table.loc[val_idx])
+        fold_preds.append(pd.DataFrame({"row": val_idx, "passed": passed, "score": score,
+                                        "hard_fail": hard_fail}))
         predict_times.append(seconds)
+    oof = pd.concat(fold_preds).set_index("row").sort_index()
+
+    # Threshold from the development set's out-of-fold scores only (never the test set).
+    threshold = None
+    if tuning_enabled(config):
+        threshold = tune_threshold(oof["score"], table.loc[oof.index, "reliable"], oof["hard_fail"],
+                                   config["benchmark"]["target_false_reject_rate"])
+        for frame in fold_preds + [oof]:
+            frame["passed"] = pass_at(frame["score"], frame["hard_fail"], threshold)
+
+    fold_metrics = [_metrics_for(table, f["row"].to_numpy(), f["passed"].to_numpy(), f["score"].to_numpy())
+                    for f in fold_preds]
     final = _fit(name, cfg, table, dev_index)
-    test_passed, test_score, seconds = _predict_rows(final, table.loc[test_index])
+    test_passed, test_score, seconds, test_hard = _predict_rows(final, table.loc[test_index])
+    if threshold is not None:
+        test_passed = pass_at(test_score, test_hard, threshold)
     predict_times.append(seconds)
     return {
         "folds": pd.DataFrame(fold_metrics),
-        "oof": pd.concat(oof).set_index("row").sort_index(),
+        "oof": oof[["passed", "score"]],
+        "oof_metrics": _metrics_for(table, oof.index, oof["passed"].to_numpy(), oof["score"].to_numpy()),
+        "threshold": threshold,
         "test": _metrics_for(table, test_index, test_passed, test_score),
         "predict_s": float(np.mean(predict_times)),
     }
@@ -207,7 +292,7 @@ def old_label_comparison(table: pd.DataFrame, config: dict) -> dict:
     """comp1-A scored against the OLD per-condition labels, on this same data."""
     agreement = (table["degraded_prediction"] == table["clean_prediction"]).groupby(table["condition"]).mean()
     old_reliable = table["condition"].map(agreement >= config["benchmark"]["old_label_agreement"])
-    passed, score, _ = _predict_rows(get_gate_model("comp1-A", _eval_config(config)), table)
+    passed, score, _, _ = _predict_rows(get_gate_model("comp1-A", _eval_config(config)), table)
     return gate_metrics(old_reliable, passed, score, table["c2_correct"])
 
 
@@ -223,12 +308,16 @@ def previous_run_metrics(config: dict) -> dict | None:
 
 # --- Selection ---------------------------------------------------------------------------------
 
-def select_model(summary: dict[str, dict], config: dict) -> tuple[str, list[str]]:
-    """Apply the config selection rule to {model: mean metrics}. Returns (winner, trace)."""
+def select_model(summary: dict[str, dict], config: dict, max_frr: float | None = None) -> tuple[str, list[str]]:
+    """Apply the config selection rule to {model: mean metrics}. Returns (winner, trace).
+
+    max_frr overrides benchmark.max_false_reject_rate (used with threshold tuning).
+    """
     bench = config["benchmark"]
     tol = bench["selection_tolerance"]
-    candidates = [m for m, s in summary.items() if s["false_reject_rate"] <= bench["max_false_reject_rate"]]
-    trace = [f"eligible (false_reject_rate <= {bench['max_false_reject_rate']}): {candidates}"]
+    limit = bench["max_false_reject_rate"] if max_frr is None else max_frr
+    candidates = [m for m, s in summary.items() if s["false_reject_rate"] <= limit]
+    trace = [f"eligible (false_reject_rate <= {limit}): {candidates}"]
     if not candidates:
         candidates = list(summary)
         trace.append(f"no model eligible; considering all: {candidates}")
@@ -250,26 +339,45 @@ def select_model(summary: dict[str, dict], config: dict) -> tuple[str, list[str]
     return winner, trace
 
 
-def rank_models(summary: dict[str, dict], config: dict) -> list[str]:
+def rank_models(summary: dict[str, dict], config: dict, max_frr: float | None = None) -> list[str]:
     """Full ranking by applying the selection rule repeatedly."""
     remaining, ranking = dict(summary), []
     while remaining:
-        winner, _ = select_model(remaining, config)
+        winner, _ = select_model(remaining, config, max_frr)
         ranking.append(winner)
         remaining.pop(winner)
     return ranking
 
 
-def write_gate_model_to_config(name: str, config_path: str | Path) -> None:
-    """Set `gate_model:` in the YAML file, keeping its comment and every other line."""
+def write_config_value(key: str, value, config_path: str | Path) -> None:
+    """Set a top-level `key:` in the YAML file, keeping its comment and every other line."""
     path = Path(config_path)
     raw = path.read_bytes().decode("utf-8")
     newline = "\r\n" if "\r\n" in raw else "\n"
-    text, count = re.subn(r"^(gate_model:\s*)\S+", lambda m: m.group(1) + name, raw.replace("\r\n", "\n"),
-                          count=1, flags=re.MULTILINE)
+    text, count = re.subn(rf"^({re.escape(key)}:\s*)\S+", lambda m: m.group(1) + str(value),
+                          raw.replace("\r\n", "\n"), count=1, flags=re.MULTILINE)
     if count != 1:
-        raise ValueError(f"no `gate_model:` line in {path}")
+        raise ValueError(f"no `{key}:` line in {path}")
     path.write_bytes(text.replace("\n", newline).encode("utf-8"))
+
+
+def write_gate_model_to_config(name: str, config_path: str | Path) -> None:
+    """Set `gate_model:` in the YAML file, keeping its comment and every other line."""
+    write_config_value("gate_model", name, config_path)
+
+
+def target_report(metrics: dict, config: dict) -> dict:
+    """Did these metrics meet the stated targets? (None where a target is not set.)"""
+    bench = config["benchmark"]
+    frr_target, far_target = bench.get("target_false_reject_rate"), bench.get("target_false_accept_rate")
+    return {
+        "target_false_reject_rate": frr_target,
+        "target_false_accept_rate": far_target,
+        "false_reject_rate": metrics["false_reject_rate"],
+        "false_accept_rate": metrics["false_accept_rate"],
+        "false_reject_target_met": None if frr_target is None else bool(metrics["false_reject_rate"] <= frr_target),
+        "false_accept_target_met": None if far_target is None else bool(metrics["false_accept_rate"] <= far_target),
+    }
 
 
 # --- Outputs -------------------------------------------------------------------------------------
@@ -277,7 +385,8 @@ def write_gate_model_to_config(name: str, config_path: str | Path) -> None:
 def _benchmark_table(results: dict, extra_rows: list[dict]) -> pd.DataFrame:
     rows = []
     for name, res in results.items():
-        row = {"model": name, "label_source": LABEL_PER_CLIP, "n_folds": len(res["folds"])}
+        row = {"model": name, "label_source": LABEL_PER_CLIP, "n_folds": len(res["folds"]),
+               "threshold": res.get("threshold")}
         for metric in METRICS:
             row[f"{metric}_mean"] = res["folds"][metric].mean()
             row[f"{metric}_std"] = res["folds"][metric].std(ddof=0)
@@ -352,9 +461,15 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
     out = {"benchmark": bench_df, "results": results, "summary": summary,
            "no_gate_downstream_accuracy": float(table["c2_correct"].mean())}
 
+    # With tuning, eligibility is judged on the pooled out-of-fold FRR the threshold was tuned to.
+    tuned = tuning_enabled(config)
+    max_frr = config["benchmark"]["target_false_reject_rate"] if tuned else None
+    selection_summary = ({n: dict(s, false_reject_rate=results[n]["oof_metrics"]["false_reject_rate"])
+                          for n, s in summary.items()} if tuned else summary)
+
     if select and summary:
-        winner, trace = select_model(summary, config)
-        ranking = rank_models(summary, config)
+        winner, trace = select_model(selection_summary, config, max_frr)
+        ranking = rank_models(selection_summary, config, max_frr)
         test = None
         if len(ranking) >= 2:
             first, second = ranking[:2]
@@ -368,6 +483,20 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
         print(f"\nSelected: {winner}\n  " + "\n  ".join(trace))
         if test:
             print(f"McNemar {test['models'][0]} vs {test['models'][1]}: p = {test['p_value']:.4g}")
+        out["targets"] = {"cross_validation": target_report(summary[winner], config),
+                          "test": target_report(results[winner]["test"], config)}
+        if tuned:
+            print(f"Tuned threshold ({winner}): {results[winner]['threshold']:.4f} "
+                  f"for false_reject_rate <= {max_frr}")
+        for where, rep in out["targets"].items():
+            if rep["target_false_reject_rate"] is not None:
+                print(f"Targets ({where}): good rejected {rep['false_reject_rate']:.1%} "
+                      f"(target <= {rep['target_false_reject_rate']:.0%}, met: {rep['false_reject_target_met']}); "
+                      f"bad let through {rep['false_accept_rate']:.1%} "
+                      f"(target <= {rep['target_false_accept_rate']:.0%}, met: {rep['false_accept_target_met']})"
+                      if rep["target_false_accept_rate"] is not None else
+                      f"Targets ({where}): good rejected {rep['false_reject_rate']:.1%} "
+                      f"(target <= {rep['target_false_reject_rate']:.0%}, met: {rep['false_reject_target_met']})")
 
     if save_outputs:
         results_dir = resolve_path(config, "results")
@@ -383,6 +512,12 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
                 "selected_gate_model": out["selected"], "reason": out["reason"], "ranking": out["ranking"],
                 "selection_order": config["benchmark"]["selection_order"],
                 "cv_mean_metrics": summary, "test_metrics_selected": results[out["selected"]]["test"],
+                "threshold_tuning": {
+                    "enabled": tuned,
+                    "thresholds": {n: results[n]["threshold"] for n in results},
+                    "pooled_oof_metrics": {n: results[n]["oof_metrics"] for n in results},
+                },
+                "targets": out["targets"],
                 "mcnemar_top_two": out["mcnemar"],
                 "comp1A_old_labels_same_data": old_same_data, "comp1A_previous_run": previous,
                 "no_gate_downstream_accuracy": out["no_gate_downstream_accuracy"],
@@ -399,6 +534,10 @@ def run_benchmark(config: dict, model_names: list[str] | None = None, select: bo
             if write_back:
                 write_gate_model_to_config(out["selected"], config_path)
                 print(f"Wrote gate_model: {out['selected']} to {config_path}")
+                if tuned:
+                    key, value = threshold_to_config(out["selected"], results[out["selected"]]["threshold"], config)
+                    write_config_value(key, value, config_path)
+                    print(f"Wrote {key}: {value} to {config_path}")
     return out
 
 

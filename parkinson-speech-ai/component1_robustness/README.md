@@ -63,6 +63,18 @@ kept. All thresholds are placeholders in `configs/component1.yaml`
 and voice activity after noise reduction) failed on real takes: hum looked up
 to 87% "voiced", and noise reduction also removed the real sustained vowel.
 
+**Task check** (`task_check.py`, config `task_check`, since v1.7). The gate
+judges *how well* a take was recorded, not *what* was said, so clear gibberish
+used to pass. On the raw audio, after the voice check: a vowel take passes only
+if its longest unbroken voiced stretch is ≥ 1.0 s AND that stretch is ≥ 50% of
+all voicing in the take (one held "aaaa", not many short syllables). Otherwise
+a PASS becomes FAIL `wrong_task` ("say one steady 'aaaa'"). Calibrated on the 81
+real AH dataset vowels (longest 1.31–7.16 s, share 0.58–1.00: none rejected)
+and real app takes (real vowels 1.84–3.47 s pass; a gibberish take, 0.33 s,
+fails). Pitch spread is recorded but not used: it did not separate gibberish
+from real vowels. DDK is reported as not checked. Thresholds are PLACEHOLDERS
+until more labelled wrong-task takes exist.
+
 **Which audio goes on:** if enhancement preserved the biomarkers, the gate
 judges and forwards `enhanced.wav`; if not, it judges and forwards `raw.wav`
 (enhancement altered the biomarkers, so the original is safer). On FAIL nothing
@@ -75,14 +87,29 @@ is forwarded.
 | `comp1-A` | Rule: speech-band contrast ≥ 10 dB (since v1.5; until v1.4 SNR/HNR ≥ 10 dB from the robustness study). |
 | `comp1-B-rf` / `-svm` / `-logreg` | Classical ML on quality metrics + MFCC means. |
 
-Training labels are **per clip** (`labels.py`): a degraded clip is
-"reliable" only if Component 2's prediction is unchanged from the clean clip
-AND jitter, shimmer, HNR and mean F0 stay within tolerance. The old
-validation labelled every clip in a condition the same way.
+Training labels are **per clip** (`labels.py`). Since config v1.6 a degraded
+clip is "reliable" when Component 2 gives the **same answer with about the same
+confidence**: the PD/HC prediction is unchanged AND P(PD) moved by at most
+`labels.max_pd_probability_shift` (0.15). The earlier rule also required jitter,
+shimmer, HNR and mean F0 to stay within the placeholder `feature_tolerances`;
+with it, every noisy clip was labelled unreliable (even at 10 dB, where
+Component 2 kept its answer 80% of the time), so the gate learned to reject
+recordings Component 2 handles fine. Set `labels.rule: prediction_and_features`
+to go back to it. The old validation labelled every clip in a condition the same way.
+
+**Goal: good recordings must pass.** The benchmark tunes each gate's pass
+threshold on out-of-fold development scores to the highest value that still
+rejects **≤ 10% of good recordings** (`benchmark.target_false_reject_rate`),
+then picks the gate that lets the **fewest bad recordings through** at that
+rate. The held-out test set never sets the threshold. Whether the targets
+(≤ 10% good rejected, ≤ 25% bad let through, both in `configs/component1.yaml`)
+were met is reported under `targets` in `selected_gate_model.json`, for
+cross-validation and for the test set. The winner and its threshold
+(`gate_pass_probability` or `comp1a_pass_db`) are written to the config.
 
 ```
 python -m component1_robustness.labels      # build results/component1_robustness/gate_labels.csv
-python -m component1_robustness.benchmark   # compare all gate models, pick one, write it to the config
+python -m component1_robustness.benchmark   # tune thresholds, compare gates, write the winner + threshold to the config
 ```
 
 The robustness study scripts (they produced the evidence for the 10 dB

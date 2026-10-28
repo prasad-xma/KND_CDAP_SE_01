@@ -4,12 +4,12 @@ experiment.py, evaluate_enhancement.py and labels.py all import
 CONDITIONS, condition_rng() and degrade() from here, so every study uses
 identical conditions AND identical random noise for the same clip.
 experiment.py and evaluate_enhancement.py also share sample_clean_files(),
-so both studies test the same recordings.
+so both studies test the same recordings. find_clips() is the one place that
+lists the dataset's PD_AH / HC_AH recordings (labels.py uses it too).
 """
 
-import glob
-import os
 import zlib
+from pathlib import Path
 
 import numpy as np
 
@@ -24,6 +24,7 @@ from component1_robustness.degradation import (
 Spec = tuple[str, float | str] | None
 
 N_PER_CLASS = 15   # recordings per class (PD / HC) sampled by the robustness and enhancement studies
+GROUP_DIRS = {"PD_AH": "PD", "HC_AH": "HC"}   # raw_data sub-folder -> group
 
 CONDITIONS: list[tuple[str, Spec]] = [
     ("clean", None),
@@ -71,10 +72,19 @@ def degrade(y: np.ndarray, sr: int, spec: Spec, rng: np.random.Generator) -> np.
     raise ValueError(f"Unknown degradation kind: {kind}")
 
 
+def find_clips(raw_dir) -> list[tuple[Path, str]]:
+    """Sorted (path, group) pairs for every .wav in the PD_AH and HC_AH sub-folders."""
+    clips = []
+    for folder, group in GROUP_DIRS.items():
+        clips += [(p, group) for p in sorted((Path(raw_dir) / folder).glob("*.wav"))]
+    return clips
+
+
 def sample_clean_files(seed: int, raw_dir, n_per_class: int = N_PER_CLASS) -> list[tuple[str, int]]:
     """Seeded stratified sample of n_per_class PD and HC recordings: [(path, label)], PD = 1, HC = 0."""
-    pd_files = sorted(glob.glob(os.path.join(str(raw_dir), "PD_AH", "*.wav")))
-    hc_files = sorted(glob.glob(os.path.join(str(raw_dir), "HC_AH", "*.wav")))
+    clips = find_clips(raw_dir)
+    pd_files = [str(p) for p, group in clips if group == "PD"]
+    hc_files = [str(p) for p, group in clips if group == "HC"]
     rng = np.random.default_rng(seed)
     pd_sample = rng.choice(pd_files, size=min(n_per_class, len(pd_files)), replace=False)
     hc_sample = rng.choice(hc_files, size=min(n_per_class, len(hc_files)), replace=False)

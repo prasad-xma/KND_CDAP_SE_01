@@ -23,9 +23,6 @@ class QualityReport {
   /// 'PASS' or 'FAIL'.
   final String decision;
 
-  /// Machine-readable reason, e.g. 'ok', 'too_short', 'low_snr', 'no_voice'.
-  final String reason;
-
   /// 0-100, higher is better.
   final double qualityScore;
 
@@ -37,7 +34,6 @@ class QualityReport {
 
   const QualityReport({
     required this.decision,
-    required this.reason,
     required this.qualityScore,
     this.audioChoice,
     required this.userMessage,
@@ -46,7 +42,6 @@ class QualityReport {
   factory QualityReport.fromJson(Map<String, dynamic> json) {
     return QualityReport(
       decision: json['decision'] as String? ?? fail,
-      reason: json['reason'] as String? ?? '',
       qualityScore: (json['quality_score'] as num?)?.toDouble() ?? 0.0,
       audioChoice: json['audio_choice'] as String?,
       userMessage: json['user_message'] as String? ?? 'Please record again.',

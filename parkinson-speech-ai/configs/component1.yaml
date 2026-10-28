@@ -2,7 +2,9 @@
 # Fixed by the developer; the end user never edits this file.
 # All paths are relative to the repo root (parkinson-speech-ai/).
 
-config_version: v1.5                 # v1.5: comp1-A on speech-band contrast (replaces reliable_db SNR/HNR rule); voice check on contrast + level.
+config_version: v1.7                 # v1.7: task check (one steady "aaaa", not speech/gibberish) -> "wrong_task".
+                                     # v1.6: labels by Component 2 answer (not placeholder feature tolerances); gate threshold tuned for <= 10% good recordings rejected.
+                                     # v1.5: comp1-A on speech-band contrast (replaces reliable_db SNR/HNR rule); voice check on contrast + level.
                                      # v1.4: max 5 s. v1.3: 1.5-8 s. v1.2: voice check (A+B). v1.1: min 2 s
 
 # Reproducibility
@@ -27,11 +29,22 @@ voice_check:
   min_speech_band_contrast_db: 6.0   # below this the take is flat
   no_voice_max_level_dbfs: -30.0     # flat AND quieter than this -> no_voice; louder -> low_snr
 
+# Task check (component1_robustness/task_check.py), on the raw audio: did the user do the
+# task? Vowel: one unbroken voiced stretch that is most of the voicing in the take.
+# Calibrated 2026-10-28: 81 real dataset vowels have longest 1.31-7.16 s and share
+# 0.58-1.00 (none rejected); a gibberish app take had 0.33 s and 0.28. PLACEHOLDERS
+# until more labelled wrong-task takes exist. DDK is not checked yet.
+task_check:
+  enabled: true
+  vowel:
+    min_longest_voiced_s: 1.0    # seconds of one held, unbroken voiced sound
+    min_voiced_share: 0.5        # that stretch / all voiced time in the take
+
 # Enhancement and gate model
 enhancement_method: noisereduce_nonstationary
-gate_model: comp1-A           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
+gate_model: comp1-B-svm           # comp1-A | comp1-B-rf | comp1-B-svm | comp1-B-logreg
 comp1a_score_span_db: 20.0    # comp1-A score: comp1a_pass_db -> 50, +/- this many dB -> 100 / 0
-gate_pass_probability: 0.5    # comp1-B: PASS when P(reliable) >= this
+gate_pass_probability: 0.2392    # comp1-B: PASS when P(reliable) >= this. Overwritten by the benchmark when tune_threshold is on
 n_mfcc: 13                    # MFCC means used by comp1-B
 
 # Max allowed relative change (|after - before| / |before|) for a
@@ -42,6 +55,13 @@ feature_tolerances:
   shimmer: 0.20
   hnr: 0.15
   mean_f0: 0.05
+
+# How labels.py decides whether a degraded clip is still "reliable" (training labels for the gate).
+#   prediction              : Component 2's PD/HC answer is unchanged AND P(PD) moved <= max_pd_probability_shift
+#   prediction_and_features : the above AND feature_tolerances hold (the original, stricter rule)
+labels:
+  rule: prediction
+  max_pd_probability_shift: 0.15   # PLACEHOLDER: "about the same confidence"; tune once probabilities are inspected
 
 # The same check for DDK recordings, on Component 3's own features
 # (component3_ddk.features). PLACEHOLDERS — calibrated in a later part.
@@ -58,10 +78,16 @@ benchmark:
   test_fraction: 0.2            # participants held out for the final test set
   apply_duration_rule: false    # AH clips are 1.7-5.5 s (some exceed 5 s); kept off
                                 # so the benchmark compares quality judgement only
+  # Priority: good recordings must pass. Each gate's threshold is tuned (out-of-fold, dev set
+  # only) to the highest value that still rejects <= target_false_reject_rate of good clips;
+  # then the gate letting the fewest bad clips through at that rate wins.
+  tune_threshold: true
+  target_false_reject_rate: 0.10   # goal: <= 10% of good recordings rejected
+  target_false_accept_rate: 0.25   # goal: <= 25% of bad recordings let through. PLACEHOLDER: set from the first tuned run
   # Lexicographic selection: values within selection_tolerance of the best count as tied.
   selection_order: [false_accept_rate, downstream_accuracy, f1, speed]
   selection_tolerance: 0.01
-  max_false_reject_rate: 0.5    # eligibility: a gate that rejects everything has FAR 0
+  max_false_reject_rate: 0.5    # eligibility when tune_threshold is off: a gate that rejects everything has FAR 0
   old_label_agreement: 0.7      # per-condition labels used by the old validation
   # Previous comp1-A result (old per-condition labels), shown next to the new numbers.
   previous_metrics_file: quality_gate_validation_metrics.json
