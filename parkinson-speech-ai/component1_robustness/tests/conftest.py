@@ -76,6 +76,13 @@ def as_take(y: np.ndarray, sr: int = TEST_SR, lead_s: float = TAKE_LEAD_S, tail_
     return y * env + floor * np.random.default_rng(seed).standard_normal(n)
 
 
+def clean_take(duration_s: float = TEST_DURATION_S, sr: int = TEST_SR) -> np.ndarray:
+    """A clean "aaaa" take that the gate should PASS: synthetic vowel plus a faint
+    hiss (about -60 dBFS), shaped like a tap-to-record take."""
+    hiss = 1e-3 * np.random.default_rng(0).standard_normal(int(duration_s * sr))
+    return as_take(make_vowel(duration_s=duration_s, sr=sr) + hiss, sr=sr)
+
+
 @pytest.fixture
 def vowel() -> np.ndarray:
     """Default 150 Hz harmonic 'vowel', 5 s, peak 0.5."""
