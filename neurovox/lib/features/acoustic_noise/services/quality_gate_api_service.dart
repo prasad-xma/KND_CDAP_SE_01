@@ -6,12 +6,23 @@
 // Same pattern as core/services/phonation_api_service.dart (Component 2),
 // but on port 8001 so both servers can run side by side.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../models/quality_report.dart';
+
+/// The gate server could not be reached or answered with an error.
+/// [toString] is the message to show.
+class GateServerException implements Exception {
+  final String message;
+  const GateServerException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 class QualityGateApiService {
   /// Laptop address, shared with PhonationApiService. Default 127.0.0.1 works
@@ -22,40 +33,22 @@ class QualityGateApiService {
 
   static const Duration _timeout = Duration(seconds: 60);
 
-  /// Checks a recording saved on disk (Android / iOS / desktop).
-  static Future<QualityReport> checkFile(String filePath, QualityTask task) async {
-    final request = _newRequest(task)
-      ..files.add(await http.MultipartFile.fromPath('audio', filePath));
-    return _send(request);
-  }
-
-  /// Checks a recording held in memory (Flutter web, where `record` gives a blob URL).
-  static Future<QualityReport> checkBytes(
-    List<int> bytes,
-    QualityTask task, {
+  /// Checks one take: [bytes] on Flutter web (where `record` gives a blob URL),
+  /// [filePath] on Android / iOS / desktop. Returns the report for PASS and FAIL
+  /// alike; throws [QualityGateRejected] only if the audio could not be decoded.
+  static Future<QualityReport> check({
+    required QualityTask task,
+    String? filePath,
+    List<int>? bytes,
     String filename = 'recording.wav',
   }) async {
-    final request = _newRequest(task)
-      ..files.add(http.MultipartFile.fromBytes('audio', bytes, filename: filename));
-    return _send(request);
-  }
-
-  static http.MultipartRequest _newRequest(QualityTask task) {
-    return http.MultipartRequest('POST', Uri.parse('$baseUrl/quality/check'))
-      ..fields['task'] = task.apiValue;
-  }
-
-  static Future<QualityReport> _send(http.MultipartRequest request) async {
-    final http.StreamedResponse streamed;
-    try {
-      streamed = await request.send().timeout(_timeout);
-    } on SocketException {
-      throw Exception(_unreachableMessage());
-    } on http.ClientException catch (e) {
-      throw Exception('${_unreachableMessage()} ($e)');
-    }
-
-    final response = await http.Response.fromStream(streamed);
+    assert(filePath != null || bytes != null, 'Give either filePath or bytes');
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/quality/check'))
+      ..fields['task'] = task.apiValue
+      ..files.add(bytes != null
+          ? http.MultipartFile.fromBytes('audio', bytes, filename: filename)
+          : await http.MultipartFile.fromPath('audio', filePath!));
+    final response = await _reach(() async => http.Response.fromStream(await request.send().timeout(_timeout)));
 
     // A rejected recording is NOT an HTTP error: the server returns 200 with
     // decision FAIL. 422 means the audio could not be decoded at all, which
@@ -63,13 +56,41 @@ class QualityGateApiService {
     if (response.statusCode == 422) {
       throw QualityGateRejected(QualityReport.fromJson(const {
         'decision': QualityReport.fail,
+        'reason': 'unreadable_audio',
         'user_message': 'The recording could not be read. Please record again.',
       }));
     }
-    if (response.statusCode != 200) {
-      throw Exception('Quality gate error (${response.statusCode}): ${response.body}');
+    return QualityReport.fromJson(_json(response));
+  }
+
+  /// The gate's thresholds and settings (GET /health), for showing next to measured values.
+  static Future<GateThresholds> fetchThresholds() async {
+    final response = await _reach(
+        () => http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(seconds: 5)));
+    return GateThresholds.fromHealthJson(_json(response));
+  }
+
+  /// URL of a plot the gate saved for a checked clip: 'waveform.png' or 'spectrogram.png'.
+  static String plotUrl(String clipId, String name) => '$baseUrl/quality/plots/$clipId/$name';
+
+  /// Runs one request, turning "server not running / not reachable" into a clear message.
+  static Future<http.Response> _reach(Future<http.Response> Function() call) async {
+    try {
+      return await call();
+    } on SocketException {
+      throw GateServerException(_unreachableMessage());
+    } on TimeoutException {
+      throw GateServerException(_unreachableMessage());
+    } on http.ClientException catch (e) {
+      throw GateServerException('${_unreachableMessage()} ($e)');
     }
-    return QualityReport.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  static Map<String, dynamic> _json(http.Response response) {
+    if (response.statusCode != 200) {
+      throw GateServerException('Quality gate error (${response.statusCode}): ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   static String _unreachableMessage() =>

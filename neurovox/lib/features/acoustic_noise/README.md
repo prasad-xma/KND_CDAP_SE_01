@@ -5,8 +5,11 @@ passes through before it reaches Component 2 (phonation) or Component 3 (DDK).
 
 ### Files
 - `quality_gate.dart`: `QualityGate.check(...)`, the single entry point other screens call
-- `services/quality_gate_api_service.dart`: HTTP client for `POST /quality/check` (port 8001)
-- `models/quality_report.dart`: `QualityReport` (the report.json fields the app uses; the full report stays on the server), `QualityTask`, `QualityGateRejected`
+- `services/quality_gate_api_service.dart`: HTTP client (port 8001): `check(...)` for `POST /quality/check` (bytes on web, file path elsewhere), `fetchThresholds()`, `plotUrl(...)`; `GateServerException` when the server can't be reached
+- `gate_colors.dart`: `GateColors`, the dark palette both screens use
+- `models/quality_report.dart`: `QualityReport` (report.json: decision, score, message, plus the measured quality, voice check and biomarker changes), `GateThresholds` (from `GET /health`), `QualityTask`, `QualityGateRejected`
+- `take_recorder.dart`: `TakeRecorder`, one 5 s take with the 5 -> 0 countdown (stops at 4.8 s), shared by both screens below
+- `live_gate_check_screen.dart`: Home's **Live Mic Test** tile. Record one take and see the gate's decision, each check against its threshold, what enhancement did, and the waveform/spectrogram plots (`GET /quality/plots/<clip_id>/<name>`). Gate only, no Component 2/3.
 
 ### Run
 ```
@@ -26,7 +29,7 @@ try {
 }
 ```
 
-`guided_test_screen.dart` (opened by Home's **Start Test**): a 2-step test.
+`guided_test_screen.dart` (currently not opened anywhere; Home's **Start Test** button does nothing): a 2-step test.
 Step 1 of 2 is one "aaaa" take (gate task `vowel`, then Component 2). Step 2 of 2
 is one "pa-ta-ka" take (gate task `ddk`; the motor result is "coming soon" until
 Component 3 has an API). A rejected take shows the gate's message, and the user

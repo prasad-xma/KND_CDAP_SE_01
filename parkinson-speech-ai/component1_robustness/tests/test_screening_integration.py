@@ -2,15 +2,13 @@
 
 import dataclasses
 
-import numpy as np
 import pytest
 
 from screening import predict_screening
 from screening.predict_screening import ScreeningResult, print_report, run_screening
 
-from conftest import as_take, gate_config, make_ddk, make_vowel, write_wav
+from conftest import clean_take, gate_config, make_ddk, make_vowel, write_wav
 
-SR = 16000
 OLD_RESULT_FIELDS = ["stage_reached", "quality_gate_vowel", "quality_gate_ddk", "score_a_phonation",
                      "score_b_speech_motor", "fused_score", "classification", "message"]
 OLD_GATE_KEYS = ["passed", "estimated_snr_db", "method", "level_dbfs", "message"]
@@ -23,8 +21,7 @@ def cfg(tmp_path):
 
 @pytest.fixture
 def recordings(tmp_path):
-    vowel = as_take(make_vowel() + 1e-3 * np.random.default_rng(0).standard_normal(SR * 5))
-    return write_wav(tmp_path, "vowel.wav", vowel), write_wav(tmp_path, "ddk.wav", make_ddk())
+    return write_wav(tmp_path, "vowel.wav", clean_take()), write_wav(tmp_path, "ddk.wav", make_ddk())
 
 
 def test_result_fields_unchanged():

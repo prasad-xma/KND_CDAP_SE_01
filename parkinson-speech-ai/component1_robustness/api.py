@@ -12,6 +12,9 @@ The response is the report.json content from pipeline.run_gate. A rejected
 recording is NOT an HTTP error: it returns 200 with "decision": "FAIL" and a
 "user_message" the app can show ("Please record again in a quieter room").
 HTTP errors are only for bad requests (400) or unreadable audio (422).
+
+GET /health also returns the gate's thresholds; GET /quality/plots/<clip_id>/waveform.png
+(or spectrogram.png) returns the plot saved for a checked clip (the Live Mic Test screen shows them).
 """
 
 import os
@@ -21,11 +24,15 @@ import tempfile
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
-from component1_robustness.config import load_config
+from component1_robustness.config import load_config, resolve_path
 from component1_robustness.pipeline import TASKS, run_gate
+from component1_robustness.voice_check import voice_check_config
 
 ALLOWED_EXTENSIONS = (".wav", ".m4a", ".mp3")
+PLOT_FILES = ("waveform.png", "spectrogram.png")   # the only files /quality/plots serves
+CLIP_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")    # clip ids are a safe stem + "_" + hash prefix
 
 app = FastAPI(title="Component 1 - Audio Quality Gate API")
 
@@ -52,6 +59,23 @@ def health(config: dict = Depends(get_config)):
         "gate_model": config["gate_model"],
         "enhancement_method": config["enhancement_method"],
         "config_version": str(config["config_version"]),
+        "thresholds": _thresholds(config),
+    }
+
+
+def _thresholds(config: dict) -> dict:
+    """The limits the gate compares against, so a client can show them next to the measured values."""
+    voice = voice_check_config(config)
+    return {
+        "min_duration_s": config["min_duration_s"],
+        "max_duration_s": config["max_duration_s"],
+        "max_clipping_pct": config["max_clipping_pct"],
+        "min_voice_activity_pct": config["min_voice_activity_pct"],
+        "comp1a_pass_db": config.get("comp1a_pass_db", 10.0),
+        "min_speech_band_contrast_db": voice["min_speech_band_contrast_db"],
+        "no_voice_max_level_dbfs": voice["no_voice_max_level_dbfs"],
+        "feature_tolerances": {task: dict(config[key]) for task, key in (("vowel", "feature_tolerances"),
+                                                                      ("ddk", "ddk_feature_tolerances"))},
     }
 
 
@@ -115,3 +139,18 @@ async def quality_check(
 
     _log_result(report)
     return report
+
+
+@app.get("/quality/plots/{clip_id}/{name}")
+def quality_plot(clip_id: str, name: str, config: dict = Depends(get_config)):
+    """A plot run_gate saved for a checked clip: waveform.png or spectrogram.png (raw above enhanced).
+
+    Only those two file names, and only clip ids made of letters, digits, "_" and "-",
+    so nothing else in the outputs folder can be fetched.
+    """
+    if name not in PLOT_FILES or not CLIP_ID_PATTERN.match(clip_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    path = resolve_path(config, "outputs") / clip_id / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path, media_type="image/png")

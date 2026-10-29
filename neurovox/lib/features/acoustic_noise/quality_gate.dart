@@ -27,12 +27,8 @@ class QualityGate {
     String filename = 'recording.wav',
   }) async {
     if (!enabled) return null;
-    assert(filePath != null || bytes != null, 'Give either filePath or bytes');
-
-    final QualityReport report = bytes != null
-        ? await QualityGateApiService.checkBytes(bytes, task, filename: filename)
-        : await QualityGateApiService.checkFile(filePath!, task);
-
+    final report =
+        await QualityGateApiService.check(task: task, filePath: filePath, bytes: bytes, filename: filename);
     if (!report.passed) throw QualityGateRejected(report);
     return report;
   }

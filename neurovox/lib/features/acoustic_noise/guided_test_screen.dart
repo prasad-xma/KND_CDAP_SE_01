@@ -1,4 +1,4 @@
-// Component 1 - guided 2-step voice test, opened from Home's "Start Test".
+// Component 1 - guided 2-step voice test (not opened anywhere at the moment).
 //
 //   Step 1 of 2  Phonation     "aaaa"      -> quality gate (vowel) -> Component 2
 //   Step 2 of 2  Speech-Motor  "pa-ta-ka"  -> quality gate (ddk)   -> Component 3 (coming soon)
@@ -7,38 +7,20 @@
 // gate's message and the user re-records the same step. The vowel take is only
 // sent to Component 2 after BOTH steps have passed the gate.
 
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
 
 import '../../core/models/phonation_result.dart';
 import '../../core/services/phonation_api_service.dart';
+import 'gate_colors.dart';
 import 'quality_gate.dart';
-
-const Color _bg = Color(0xFF0A0E14);
-const Color _surface = Color(0xFF131A24);
-const Color _surfaceRaised = Color(0xFF1A2330);
-const Color _stroke = Color(0xFF232E3D);
-const Color _accent = Color(0xFF22E6C9);
-const Color _accentDim = Color(0xFF0C9388);
-const Color _warn = Color(0xFFFFB24B);
-const Color _danger = Color(0xFFFF6B6B);
-const Color _textPrimary = Color(0xFFEFF4F8);
-const Color _textSecondary = Color(0xFF8C9AAE);
-const Color _textFaint = Color(0xFF5B6778);
+import 'take_recorder.dart';
 
 class _TestStep {
   final QualityTask task;
   final String title;
   final String instruction;
   final String prompt;
-  final int seconds;
   final IconData icon;
 
   const _TestStep({
@@ -46,18 +28,9 @@ class _TestStep {
     required this.title,
     required this.instruction,
     required this.prompt,
-    required this.seconds,
     required this.icon,
   });
 }
-
-/// Each take: countdown 5 -> 0, then recording stops by itself.
-/// The gate's maximum is also 5 s (configs/component1.yaml: 1.5-5 s).
-const int _recordSeconds = 5;
-
-/// Recording actually stops at 4.8 s: the browser stops the mic a little late, and a
-/// real take that ran 5.08 s was rejected as too long. The display still ends at 0.
-const int _stopAtMs = 4800;
 
 const List<_TestStep> _steps = [
   _TestStep(
@@ -65,7 +38,6 @@ const List<_TestStep> _steps = [
     title: 'Phonation',
     instruction: 'Take a breath, then say "aaaa" in one steady sound until the timer ends.',
     prompt: '"aaaaaaaa..."',
-    seconds: _recordSeconds,
     icon: Icons.graphic_eq_rounded,
   ),
   _TestStep(
@@ -73,7 +45,6 @@ const List<_TestStep> _steps = [
     title: 'Speech-Motor',
     instruction: 'Repeat "pa-ta-ka" as quickly and clearly as you can until the timer ends.',
     prompt: '"pa-ta-ka  pa-ta-ka..."',
-    seconds: _recordSeconds,
     icon: Icons.record_voice_over_rounded,
   ),
 ];
@@ -91,13 +62,11 @@ class GuidedTestScreen extends StatefulWidget {
 }
 
 class _GuidedTestScreenState extends State<GuidedTestScreen> {
-  final AudioRecorder _recorder = AudioRecorder();
-  Timer? _timer;
+  final TakeRecorder _takeRecorder = TakeRecorder();
 
   int _stepIndex = 0;
   _Phase _phase = _Phase.ready;
   int _remaining = 0;
-  DateTime? _recordingStartedAt;
   String? _message;
 
   /// Gate report per step (null = not recorded yet, or gate switched off).
@@ -114,121 +83,51 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _recorder.dispose();
-    _deleteFile(_vowelPath);
+    _takeRecorder.dispose();
+    TakeRecorder.deleteFile(_vowelPath);
     super.dispose();
   }
 
-  // --- Recording -------------------------------------------------------------
-
-  Future<String> _newRecordingPath(QualityTask task) async {
-    if (kIsWeb) return '${task.apiValue}_take.wav';
-    final dir = await getTemporaryDirectory();
-    return '${dir.path}/${task.apiValue}_take_${DateTime.now().millisecondsSinceEpoch}.wav';
-  }
-
-  Future<void> _deleteFile(String? path) async {
-    if (kIsWeb || path == null) return;
-    final f = File(path);
-    if (await f.exists()) await f.delete();
-  }
+  // --- Recording (shared logic in take_recorder.dart) -------------------------
 
   Future<void> _startRecording() async {
-    if (!kIsWeb) {
-      final status = await Permission.microphone.request();
-      if (!status.isGranted) {
-        _showProblem('Microphone permission is required to run this test.');
-        return;
-      }
-    }
-    if (!await _recorder.hasPermission()) {
-      _showProblem('Microphone permission is required to run this test.');
-      return;
-    }
-
-    final path = await _newRecordingPath(_step.task);
     try {
-      await _recorder.start(
-        // streamBufferSize 8192 (max): the browser hands audio to the app ~5x/s
-        // instead of ~21x/s, so the countdown keeps drawing smoothly while recording.
-        const RecordConfig(
-          encoder: AudioEncoder.wav,
-          sampleRate: 44100,
-          numChannels: 1,
-          streamBufferSize: 8192,
-        ),
-        path: path,
+      await _takeRecorder.start(
+        name: '${_step.task.apiValue}_take',
+        onTick: (left) {
+          if (mounted) setState(() => _remaining = left);
+        },
+        onTimeUp: _stopAndCheck, // switches the status to "0 · Checking recording quality..."
       );
-    } catch (e) {
-      _showProblem('Could not start the microphone. Please try again. ($e)');
+    } on TakeRecorderException catch (e) {
+      _showProblem(e.message);
       return;
     }
     if (!mounted) return;
-
-    final int seconds = _step.seconds;
-    _recordingStartedAt = DateTime.now();
     setState(() {
       _phase = _Phase.recording;
-      _remaining = seconds;
       _message = null;
-    });
-
-    // Countdown from the real elapsed time (not by counting ticks), so it
-    // still stops on time if the browser delays a timer tick.
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
-      if (!mounted || _phase != _Phase.recording) {
-        timer.cancel();
-        return;
-      }
-      final int elapsedMs = DateTime.now().difference(_recordingStartedAt!).inMilliseconds;
-      final int raw = seconds - elapsedMs ~/ 1000;
-      final int left = raw < 0 ? 0 : raw;
-      if (left != _remaining) setState(() => _remaining = left);
-      if (elapsedMs >= _stopAtMs) {
-        timer.cancel();
-        _stopAndCheck(); // switches the status to "0 · Checking recording quality..."
-      }
     });
   }
 
   Future<void> _stopAndCheck() async {
     // Runs once per take, whether the countdown reached 0 or the user tapped stop.
     if (_phase != _Phase.recording) return;
-    _timer?.cancel();
-    _timer = null;
     setState(() => _phase = _Phase.checking);
 
-    String? path;
+    final RecordedTake take;
     try {
-      path = await _recorder.stop().timeout(const Duration(seconds: 5));
-    } catch (e) {
-      try {
-        await _recorder.cancel();
-      } catch (_) {}
-      _showProblem('The recording could not be stopped properly. Please record again.');
+      take = await _takeRecorder.stop();
+    } on TakeRecorderException catch (e) {
+      _showProblem(e.message);
       return;
     }
     if (!mounted) return;
-    if (path == null) {
-      _showProblem('Recording failed. Please try again.');
-      return;
-    }
     final step = _step;
-    String? filePath;
-    List<int>? bytes;
+    final String? filePath = take.filePath;
+    final List<int>? bytes = take.bytes;
 
     try {
-      if (kIsWeb) {
-        bytes = (await http.get(Uri.parse(path))).bodyBytes;
-        if (bytes.length < 1000) {
-          throw Exception('No audio was captured. Check the microphone and try again.');
-        }
-      } else {
-        filePath = path;
-      }
-
       final report = await QualityGate.check(
         task: step.task,
         filePath: filePath,
@@ -245,7 +144,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         _vowelBytes = bytes;
       } else {
         // Component 3 has no API yet, so the DDK take is not kept.
-        await _deleteFile(filePath);
+        await TakeRecorder.deleteFile(filePath);
       }
 
       if (_stepIndex == 0) {
@@ -257,11 +156,11 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         await _analysePhonation();
       }
     } on QualityGateRejected catch (e) {
-      await _deleteFile(filePath);
+      await TakeRecorder.deleteFile(filePath);
       _showProblem(e.report.userMessage);
     } catch (e) {
-      await _deleteFile(filePath);
-      _showProblem(e.toString().replaceFirst('Exception: ', ''));
+      await TakeRecorder.deleteFile(filePath);
+      _showProblem(e.toString());
     }
   }
 
@@ -294,7 +193,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         _phase = _Phase.done;
       });
     } finally {
-      await _deleteFile(_vowelPath);
+      await TakeRecorder.deleteFile(_vowelPath);
       _vowelPath = null;
       _vowelBytes = null;
     }
@@ -335,14 +234,14 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: GateColors.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: _textPrimary,
+        foregroundColor: GateColors.textPrimary,
         title: const Text(
           'Voice Screening Test',
-          style: TextStyle(fontWeight: FontWeight.w700, color: _textPrimary, fontSize: 18),
+          style: TextStyle(fontWeight: FontWeight.w700, color: GateColors.textPrimary, fontSize: 18),
         ),
       ),
       body: SafeArea(
@@ -364,7 +263,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
             margin: EdgeInsets.only(right: i == _steps.length - 1 ? 0 : 8),
             height: 6,
             decoration: BoxDecoration(
-              color: passed ? _accent : (active ? _accent.withValues(alpha: 0.45) : _stroke),
+              color: passed ? GateColors.accent : (active ? GateColors.accent.withValues(alpha: 0.45) : GateColors.stroke),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -385,7 +284,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _accent.withValues(alpha: 0.15),
+            color: GateColors.accent.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -393,7 +292,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              color: _accent,
+              color: GateColors.accent,
               letterSpacing: 0.5,
             ),
           ),
@@ -406,13 +305,13 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         Text(
           step.instruction,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15, color: _textSecondary, height: 1.45),
+          style: const TextStyle(fontSize: 15, color: GateColors.textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
         Text(
           step.prompt,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: _textPrimary),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: GateColors.textPrimary),
         ),
         const SizedBox(height: 32),
         _buildStatus(),
@@ -426,10 +325,10 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: _phase == _Phase.recording
-                    ? const [Color(0xFFFF8A65), _danger]
+                    ? const [Color(0xFFFF8A65), GateColors.danger]
                     : busy
-                        ? const [_surfaceRaised, _surfaceRaised]
-                        : const [_accent, _accentDim],
+                        ? const [GateColors.surfaceRaised, GateColors.surfaceRaised]
+                        : const [GateColors.accent, GateColors.accentDim],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -437,7 +336,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
                   ? null
                   : [
                       BoxShadow(
-                        color: (_phase == _Phase.recording ? _danger : _accent).withValues(alpha: 0.35),
+                        color: (_phase == _Phase.recording ? GateColors.danger : GateColors.accent).withValues(alpha: 0.35),
                         blurRadius: 24,
                         offset: const Offset(0, 8),
                       ),
@@ -446,14 +345,14 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
             child: Icon(
               _phase == _Phase.recording ? Icons.stop_rounded : Icons.mic_rounded,
               size: 46,
-              color: busy ? _textFaint : const Color(0xFF071210),
+              color: busy ? GateColors.textFaint : const Color(0xFF071210),
             ),
           ),
         ),
         const SizedBox(height: 14),
         Text(
           _micLabel(),
-          style: const TextStyle(fontSize: 13, color: _textFaint, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 13, color: GateColors.textFaint, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -479,15 +378,15 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
       case _Phase.recording:
         return Column(
           children: [
-            _countdownNumber('$_remaining', _accent),
-            const Text('Listening...', style: TextStyle(color: _accent, fontWeight: FontWeight.w600)),
+            _countdownNumber('$_remaining', GateColors.accent),
+            const Text('Listening...', style: TextStyle(color: GateColors.accent, fontWeight: FontWeight.w600)),
           ],
         );
       case _Phase.checking:
         // The countdown finished at 0; keep the 0 on screen while the gate checks the take.
         return Column(
           children: [
-            _countdownNumber('0', _textFaint),
+            _countdownNumber('0', GateColors.textFaint),
             _buildBusy('Checking recording quality...'),
           ],
         );
@@ -498,19 +397,19 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _danger.withValues(alpha: 0.12),
+            color: GateColors.danger.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _danger.withValues(alpha: 0.4)),
+            border: Border.all(color: GateColors.danger.withValues(alpha: 0.4)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.error_outline_rounded, color: _danger, size: 22),
+              const Icon(Icons.error_outline_rounded, color: GateColors.danger, size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   _message ?? 'Please record again.',
-                  style: const TextStyle(color: _textPrimary, fontSize: 13.5, height: 1.4),
+                  style: const TextStyle(color: GateColors.textPrimary, fontSize: 13.5, height: 1.4),
                 ),
               ),
             ],
@@ -521,7 +420,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         return const SizedBox(
           height: 48,
           child: Center(
-            child: Text('Ready when you are', style: TextStyle(color: _textSecondary, fontSize: 14)),
+            child: Text('Ready when you are', style: TextStyle(color: GateColors.textSecondary, fontSize: 14)),
           ),
         );
     }
@@ -548,10 +447,10 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
           const SizedBox(
             width: 26,
             height: 26,
-            child: CircularProgressIndicator(strokeWidth: 3, color: _accent),
+            child: CircularProgressIndicator(strokeWidth: 3, color: GateColors.accent),
           ),
           const SizedBox(height: 12),
-          Text(label, style: const TextStyle(color: _textSecondary, fontWeight: FontWeight.w600)),
+          Text(label, style: const TextStyle(color: GateColors.textSecondary, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -561,19 +460,19 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _accent.withValues(alpha: 0.10),
+        color: GateColors.accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _accent.withValues(alpha: 0.35)),
+        border: Border.all(color: GateColors.accent.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_rounded, color: _accent, size: 18),
+          const Icon(Icons.check_circle_rounded, color: GateColors.accent, size: 18),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
               report == null ? label : '$label (score ${report.qualityScore.toStringAsFixed(0)})',
-              style: const TextStyle(color: _textPrimary, fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(color: GateColors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -591,12 +490,12 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         const SizedBox(height: 22),
         const Text(
           'Test complete',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _textPrimary),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: GateColors.textPrimary),
         ),
         const SizedBox(height: 6),
         const Text(
           'Both recordings passed the quality check.',
-          style: TextStyle(fontSize: 13.5, color: _textSecondary),
+          style: TextStyle(fontSize: 13.5, color: GateColors.textSecondary),
         ),
         const SizedBox(height: 20),
         _buildResultCard(
@@ -614,19 +513,19 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
           report: _reports[1],
           body: const Text(
             'Motor analysis is coming soon (Component 3).',
-            style: TextStyle(color: _textSecondary, fontSize: 13.5),
+            style: TextStyle(color: GateColors.textSecondary, fontSize: 13.5),
           ),
         ),
         const SizedBox(height: 18),
         const Text(
           'This is a screening aid, not a diagnosis. Please consult a doctor about any concerns.',
-          style: TextStyle(color: _textFaint, fontSize: 12, height: 1.4),
+          style: TextStyle(color: GateColors.textFaint, fontSize: 12, height: 1.4),
         ),
         const SizedBox(height: 22),
         ElevatedButton(
           onPressed: () => Navigator.of(context).maybePop(),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _accent,
+            backgroundColor: GateColors.accent,
             foregroundColor: const Color(0xFF071210),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -636,7 +535,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         const SizedBox(height: 10),
         TextButton(
           onPressed: _restart,
-          child: const Text('Run the test again', style: TextStyle(color: _accent, fontWeight: FontWeight.w700)),
+          child: const Text('Run the test again', style: TextStyle(color: GateColors.accent, fontWeight: FontWeight.w700)),
         ),
       ],
     );
@@ -646,7 +545,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
     if (_phonationError != null) {
       return Text(
         'Could not get the phonation result: $_phonationError',
-        style: const TextStyle(color: _warn, fontSize: 13, height: 1.4),
+        style: const TextStyle(color: GateColors.warn, fontSize: 13, height: 1.4),
       );
     }
     final r = _phonation;
@@ -658,7 +557,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         Text(
           pd ? 'Voice pattern similar to PD' : 'Voice pattern similar to healthy controls',
           style: TextStyle(
-            color: pd ? _warn : _accent,
+            color: pd ? GateColors.warn : GateColors.accent,
             fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
@@ -666,7 +565,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
         const SizedBox(height: 4),
         Text(
           'PD probability: ${(r.probabilityPd * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(color: _textSecondary, fontSize: 13),
+          style: const TextStyle(color: GateColors.textSecondary, fontSize: 13),
         ),
       ],
     );
@@ -682,26 +581,26 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _surface,
+        color: GateColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _stroke),
+        border: Border.all(color: GateColors.stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: _accent, size: 20),
+              Icon(icon, color: GateColors.accent, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+                  style: const TextStyle(color: GateColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
               Text(
                 stepLabel,
-                style: const TextStyle(color: _textFaint, fontSize: 11, fontWeight: FontWeight.w700),
+                style: const TextStyle(color: GateColors.textFaint, fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -710,7 +609,7 @@ class _GuidedTestScreenState extends State<GuidedTestScreen> {
             report == null
                 ? 'Quality gate: off'
                 : 'Quality gate: PASS · score ${report.qualityScore.toStringAsFixed(0)} · ${report.audioChoice ?? '-'} audio',
-            style: const TextStyle(color: _textFaint, fontSize: 12),
+            style: const TextStyle(color: GateColors.textFaint, fontSize: 12),
           ),
           const SizedBox(height: 10),
           body,

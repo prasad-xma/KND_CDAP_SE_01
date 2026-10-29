@@ -1,14 +1,11 @@
 """Tests for cli.py."""
 
-import numpy as np
 import pytest
 import yaml
 
 from component1_robustness import cli
 
-from conftest import as_take, gate_config, make_ddk, make_vowel, write_wav
-
-SR = 16000
+from conftest import clean_take, gate_config, make_ddk, make_vowel, write_wav
 
 
 @pytest.fixture
@@ -20,8 +17,7 @@ def config_file(tmp_path):
 
 
 def test_pass_exit_code_0(tmp_path, config_file, capsys):
-    y = as_take(make_vowel() + 1e-3 * np.random.default_rng(0).standard_normal(SR * 5))
-    code = cli.main(["--input", write_wav(tmp_path, "v.wav", y), "--task", "vowel", "--config", config_file])
+    code = cli.main(["--input", write_wav(tmp_path, "v.wav", clean_take()), "--task", "vowel", "--config", config_file])
     out = capsys.readouterr().out
     assert code == 0
     assert "Decision      : PASS" in out and "component2" in out and "report.json" in out
