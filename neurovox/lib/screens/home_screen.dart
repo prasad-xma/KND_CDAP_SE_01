@@ -4,6 +4,7 @@ import '../core/i18n/language_controller.dart';
 import '../core/widgets/bottom_nav_bar.dart';
 import '../core/widgets/language_toggle_button.dart';
 import '../core/models/phonation_result.dart';
+import '../core/models/speech_motor_result.dart';
 import '../features/phonation/phonation_test_screen.dart';
 import 'speech_motor_test_screen.dart';
 import 'reports_screen.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   int _progressStep = 1;
 
   PhonationDualResult? _phonationResult;
+  SpeechMotorResult? _speechMotorResult;
 
   _StepState _stepStateFor(int step) {
     if (_progressStep > step) return _StepState.done;
@@ -63,12 +65,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             }),
           ),
           SpeechMotorTestScreen(
+            onResult: (result) => setState(() => _speechMotorResult = result),
             onClose: () => setState(() {
               if (_progressStep == 3) _progressStep = 4;
               _currentIndex = 0;
             }),
           ),
-          ReportsScreen(phonationResult: _phonationResult),
+          ReportsScreen(phonationResult: _phonationResult, speechMotorResult: _speechMotorResult),
         ];
 
         return AnnotatedRegion<SystemUiOverlayStyle>(

@@ -186,13 +186,25 @@ const Map<String, String> enEnStrings = {
   'finalScorePendingTitle': 'Final score pending',
   'finalScorePendingDesc':
       'The fused risk score needs both Phonation and Speech-Motor results. Complete both assessments to see it here.',
+  'riskTierLowTitle': 'Low risk indicators',
+  'riskTierLowDesc': 'Both assessments show patterns consistent with healthy speech. No immediate concern.',
+  'riskTierModerateTitle': 'Mixed / borderline signals',
+  'riskTierModerateDesc': 'The combined result is inconclusive. Consider retesting or monitoring over time.',
+  'riskTierHighTitle': 'Elevated risk indicators',
+  'riskTierHighDesc':
+      'This does not mean you have Parkinson\'s disease - voice/speech changes can have many causes. It would be a good idea to consult a doctor for a proper evaluation.',
+  'fusionDiscordantNote':
+      'The two assessments point in different directions, which adds uncertainty to this result.',
   'phonationResultsSectionTitle': 'Phonation Test Results',
   'speechMotorResultsSectionTitle': 'Speech-Motor Test Results',
   'noPhonationResultsYet': 'No phonation results yet.',
   'motorResultsNotAvailableDesc': 'Not available yet - this assessment is still being built.',
+  'motorUsePlaceholderButton': 'Use Placeholder Score',
+  'motorUsePlaceholderNote': 'Placeholder value - Component 3 (Speech-Motor) is still being built.',
   'vowelTaskFullLabel': 'Vowel Task (Sustained "aaaa")',
   'phraseTaskFullLabel': 'Phrase Task (Read-Aloud)',
   'phraseTaskNotRun': 'Phrase task not run (vowel-only mode).',
+  'speechMotorTaskFullLabel': 'Speech-Motor Task (DDK Passage Reading)',
 
   'liveMicTestTitle': 'Live Mic Test',
   'notAvailableYetTitle': 'Not available yet',

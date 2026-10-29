@@ -1,19 +1,49 @@
 import 'package:flutter/material.dart';
 import '../core/i18n/language_controller.dart';
 import '../core/models/phonation_result.dart';
+import '../core/models/speech_motor_result.dart';
+import '../core/models/risk_fusion.dart';
 
 class ReportsScreen extends StatelessWidget {
   final PhonationDualResult? phonationResult;
+  final SpeechMotorResult? speechMotorResult;
 
-  const ReportsScreen({super.key, this.phonationResult});
+  const ReportsScreen({super.key, this.phonationResult, this.speechMotorResult});
 
   @override
   Widget build(BuildContext context) {
     const Color primaryTeal = Color(0xFF0C9388);
+    const Color warnOrange = Color(0xFFD97706);
+    const Color dangerRed = Color(0xFFDC2626);
     const Color darkSlate = Color(0xFF1E293B);
     const Color mediumGrey = Color(0xFF64748B);
 
     final PhonationDualResult? r = phonationResult;
+    final SpeechMotorResult? m = speechMotorResult;
+
+    final bool hasFusedScore = r != null && m != null;
+    final FusionResult? fusion = hasFusedScore
+        ? RiskFusion.compute(phonationProbabilityPd: r.probabilityPd, motorProbabilityPd: m.probabilityPd)
+        : null;
+
+    final Color tierColor = switch (fusion?.tier) {
+      RiskTier.low => primaryTeal,
+      RiskTier.moderate => warnOrange,
+      RiskTier.high => dangerRed,
+      null => primaryTeal,
+    };
+    final String tierTitleKey = switch (fusion?.tier) {
+      RiskTier.low => 'riskTierLowTitle',
+      RiskTier.moderate => 'riskTierModerateTitle',
+      RiskTier.high => 'riskTierHighTitle',
+      null => 'finalScorePendingTitle',
+    };
+    final String tierDescKey = switch (fusion?.tier) {
+      RiskTier.low => 'riskTierLowDesc',
+      RiskTier.moderate => 'riskTierModerateDesc',
+      RiskTier.high => 'riskTierHighDesc',
+      null => 'finalScorePendingDesc',
+    };
 
     return ListenableBuilder(
       listenable: LanguageController.instance,
@@ -58,25 +88,46 @@ class ReportsScreen extends StatelessWidget {
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE6F8F5),
+                  decoration: BoxDecoration(
+                    color: hasFusedScore ? tierColor.withValues(alpha: 0.12) : const Color(0xFFE6F8F5),
                     shape: BoxShape.circle,
                   ),
-                  child: const Center(
-                    child: Icon(Icons.analytics_outlined, size: 36, color: primaryTeal),
+                  child: Center(
+                    child: hasFusedScore
+                        ? Text(
+                            '${(fusion!.fusedProbabilityPd * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: tierColor),
+                          )
+                        : const Icon(Icons.analytics_outlined, size: 36, color: primaryTeal),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  tr('finalScorePendingTitle'),
+                  tr(tierTitleKey),
                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: darkSlate),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  tr('finalScorePendingDesc'),
+                  tr(tierDescKey),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: mediumGrey, fontSize: 13.5, fontWeight: FontWeight.w500),
                 ),
+                if (hasFusedScore && !fusion!.concordant) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    tr('fusionDiscordantNote'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: warnOrange, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+                if (hasFusedScore && m.isPlaceholder) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    tr('motorUsePlaceholderNote'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: mediumGrey, fontSize: 11.5, fontStyle: FontStyle.italic),
+                  ),
+                ],
               ],
             ),
           ),
@@ -98,7 +149,10 @@ class ReportsScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkSlate, letterSpacing: -0.3),
           ),
           const SizedBox(height: 14),
-          _buildEmptyCard(tr('motorResultsNotAvailableDesc')),
+          if (m == null)
+            _buildEmptyCard(tr('motorResultsNotAvailableDesc'))
+          else
+            _buildMotorResultCard(m),
           const SizedBox(height: 24),
         ],
       ),
@@ -168,6 +222,66 @@ class ReportsScreen extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildMotorResultCard(SpeechMotorResult m) {
+    const Color primaryTeal = Color(0xFF0C9388);
+    const Color warnOrange = Color(0xFFD97706);
+    const Color darkSlate = Color(0xFF1E293B);
+    const Color mediumGrey = Color(0xFF64748B);
+
+    final Color accent = m.isPd ? warnOrange : primaryTeal;
+    final double confidence = m.isPd ? m.probabilityPd : m.probabilityHc;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: primaryTeal.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  tr('speechMotorTaskFullLabel'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: darkSlate, fontSize: 14),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${(confidence * 100).toStringAsFixed(1)}% ${m.isPd ? "PD" : "HC"}',
+                  style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          if (m.isPlaceholder) ...[
+            const SizedBox(height: 10),
+            Text(
+              tr('motorUsePlaceholderNote'),
+              style: const TextStyle(fontSize: 11.5, color: mediumGrey, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
