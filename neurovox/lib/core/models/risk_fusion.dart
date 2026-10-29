@@ -1,13 +1,4 @@
-/// Combines Component 2 (Phonation) and Component 3 (Speech-Motor) results
-/// into one screening-risk indicator.
-///
-/// This is NOT a diagnosis. Voice/speech changes are not specific to
-/// Parkinson's disease (see e.g. Harel et al. 2004, PubMed 18031561 - DDK
-/// rate differs in PD but jitter/shimmer can be similar to healthy speakers),
-/// so a single modality being "flagged" does not mean the person has PD.
-/// Fusing two independent modalities and reporting a risk band (rather than
-/// a binary PD/HC label) better reflects what a screening tool can actually
-/// claim.
+
 library;
 
 enum RiskTier { low, moderate, high }
