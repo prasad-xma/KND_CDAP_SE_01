@@ -9,10 +9,12 @@ import '../core/i18n/language_controller.dart';
 import '../core/models/ddk_result.dart';
 import '../core/services/ddk_api_service.dart';
 import '../core/widgets/language_toggle_button.dart';
+import '../core/models/speech_motor_result.dart';
 
 class SpeechMotorTestScreen extends StatefulWidget {
   final VoidCallback? onClose;
   final ValueChanged<DdkResult>? onResult;
+//   final ValueChanged<SpeechMotorResult>? onResult;
 
   const SpeechMotorTestScreen({super.key, this.onClose, this.onResult});
 
@@ -203,6 +205,7 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                         tr('motorSubtitle'),
                         style: const TextStyle(fontSize: 14, color: mediumGrey),
                       ),
+                      
                     ],
                   ),
                 ),
@@ -261,6 +264,39 @@ class _SpeechMotorTestScreenState extends State<SpeechMotorTestScreen> {
                   label: Text(
                     _task == 'pa' ? tr('startPaTask') : tr('startTaTask'),
                   ),
+                  /*
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      tr('motorNotAvailableDesc'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: mediumGrey, fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 18),
+                    OutlinedButton(
+                      onPressed: () {
+                        widget.onResult?.call(SpeechMotorResult.placeholder());
+                        widget.onClose?.call();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryBlue,
+                        side: const BorderSide(color: primaryBlue),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        tr('motorUsePlaceholderButton'),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      tr('motorUsePlaceholderNote'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: mediumGrey, fontSize: 11.5, fontStyle: FontStyle.italic),
+                    ),
+                  ], */
+                  
                 ),
               ),
             if (_error != null) ...[

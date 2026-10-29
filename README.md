@@ -1,6 +1,5 @@
 # KND_CDAP_SE_01
 
-
 Final year research project: **language-independent voice screening for
 Parkinson's disease** — a smartphone-based triage tool for Sri Lankan primary
 care.

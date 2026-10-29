@@ -15,10 +15,10 @@ import pandas as pd
 import soundfile as sf
 
 from component1_robustness.config import resolve_path
+from component1_robustness.quality_metrics import EPS
 from component2_phonation.features import extract_phonation_features
 from component3_ddk.features import extract_ddk_features
 
-EPS = 1e-12
 NO_PREDICTION = -1   # Component 2 found no voiced frames
 
 

@@ -15,30 +15,18 @@ from component1_robustness import pipeline
 from component1_robustness.config import load_config
 from component1_robustness.pipeline import REPORT_SCHEMA, json_safe, make_clip_id, run_gate
 
-from conftest import make_ddk, make_vowel
+from conftest import as_take, gate_config, make_ddk, make_vowel, write_wav
 
 SR = 16000
 OUTPUT_FILES = {"raw.wav", "enhanced.wav", "waveform.png", "spectrogram.png", "report.json"}
 
 
-def _config(tmp_path, **overrides) -> dict:
-    cfg = load_config()
-    cfg["paths"] = dict(cfg["paths"], outputs=str(tmp_path / "outputs"))
-    cfg.update(overrides)
-    return cfg
-
-
 def _natural_vowel(duration_s: float = 5.0, seed: int = 3) -> np.ndarray:
-    """Vowel with a slight loudness wobble and a faint noise floor, like a quiet-room recording."""
+    """Vowel with a slight loudness wobble and a faint noise floor, shaped like a real take
+    (quiet before the voice starts and after it stops)."""
     t = np.arange(int(duration_s * SR)) / SR
     hiss = 1e-3 * np.random.default_rng(seed).standard_normal(len(t))
-    return make_vowel(duration_s=duration_s) * (1 + 0.05 * np.sin(2 * np.pi * 4 * t)) + hiss
-
-
-def _wav(tmp_path, name: str, y: np.ndarray) -> str:
-    path = tmp_path / name
-    sf.write(path, y, SR)
-    return str(path)
+    return as_take(make_vowel(duration_s=duration_s) * (1 + 0.05 * np.sin(2 * np.pi * 4 * t)) + hiss)
 
 
 def _noisy_0db(y: np.ndarray) -> np.ndarray:
@@ -50,8 +38,8 @@ def _noisy_0db(y: np.ndarray) -> np.ndarray:
 @pytest.fixture(scope="module")
 def vowel_run(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("vowel")
-    cfg = _config(tmp)
-    report = run_gate(_wav(tmp, "patient_vowel.wav", _natural_vowel()), "vowel", cfg)
+    cfg = gate_config(tmp)
+    report = run_gate(write_wav(tmp, "patient_vowel.wav", _natural_vowel()), "vowel", cfg)
     return report, cfg, tmp
 
 
@@ -99,30 +87,32 @@ def test_config_version_recorded(vowel_run):
 def test_clean_vowel_passes_to_component2(vowel_run):
     report, _, _ = vowel_run
     assert report["decision"] == "PASS" and report["reason"] == "ok"
+    assert report["voice_check"]["passed"] is True
     assert report["next_component"] == "component2"
     assert report["audio_choice"] in {"enhanced", "raw"}
     assert report["audio_for_next_stage"].endswith(f"{report['audio_choice']}.wav")
 
 
 def test_clean_ddk_passes_to_component3(tmp_path):
-    report = run_gate(_wav(tmp_path, "patient_ddk.wav", make_ddk()), "ddk", _config(tmp_path))
+    report = run_gate(write_wav(tmp_path, "patient_ddk.wav", make_ddk()), "ddk", gate_config(tmp_path))
     jsonschema.validate(report, REPORT_SCHEMA)
     assert report["decision"] == "PASS"
+    assert report["voice_check"]["passed"] is True
     assert report["next_component"] == "component3"
 
 
 def test_ddk_preservation_uses_component3_features(tmp_path):
     """The audio goes to Component 3, so its DDK features are the ones checked."""
     from component3_ddk.features import FEATURE_NAMES as DDK_FEATURE_NAMES
-    cfg = _config(tmp_path)
-    report = run_gate(_wav(tmp_path, "d.wav", make_ddk()), "ddk", cfg)
+    cfg = gate_config(tmp_path)
+    report = run_gate(write_wav(tmp_path, "d.wav", make_ddk()), "ddk", cfg)
     assert list(report["features_before"]) == DDK_FEATURE_NAMES
     assert set(report["feature_preserved"]["per_feature"]) == set(cfg["ddk_feature_tolerances"])
 
 
 def test_0db_noisy_clip_fails_with_reason_and_message(tmp_path):
-    cfg = _config(tmp_path)
-    report = run_gate(_wav(tmp_path, "noisy.wav", _noisy_0db(_natural_vowel())), "vowel", cfg)
+    cfg = gate_config(tmp_path)
+    report = run_gate(write_wav(tmp_path, "noisy.wav", _noisy_0db(_natural_vowel())), "vowel", cfg)
     jsonschema.validate(report, REPORT_SCHEMA)
     assert report["decision"] == "FAIL"
     assert report["reason"] == "low_snr"
@@ -131,26 +121,30 @@ def test_0db_noisy_clip_fails_with_reason_and_message(tmp_path):
     assert report["audio_choice"] is None and report["next_component"] is None
 
 
-@pytest.mark.parametrize("seconds,reason", [(2.9, "too_short"), (15.1, "too_long")])
+@pytest.mark.parametrize("seconds,reason", [(1.4, "too_short"), (5.1, "too_long")])
 def test_duration_fail_stops_before_enhancement(tmp_path, monkeypatch, seconds, reason):
     def must_not_run(*args, **kwargs):
         raise AssertionError("enhance() must not run for a clip of the wrong length")
     monkeypatch.setattr(pipeline, "enhance", must_not_run)
 
-    report = run_gate(_wav(tmp_path, "clip.wav", _natural_vowel(seconds)), "vowel", _config(tmp_path))
+    report = run_gate(write_wav(tmp_path, "clip.wav", _natural_vowel(seconds)), "vowel", gate_config(tmp_path))
     jsonschema.validate(report, REPORT_SCHEMA)
     assert (report["decision"], report["reason"], report["quality_score"]) == ("FAIL", reason, 0.0)
     assert report["duration_s"] == pytest.approx(seconds, abs=1e-3)
     assert report["quality_before"] is None and report["features_before"] is None
+    assert report["voice_check"] is None
     assert "seconds" in report["user_message"]
     folder = tmp_path / "outputs" / report["clip_id"]
     assert {p.name for p in folder.iterdir()} == {"raw.wav", "report.json"}
 
 
+# The two preservation tests switch the skip-when-clean policy off (enhancement=None):
+# they test the preservation check itself, which a skipped (unprocessed) take never reaches.
+
 def test_preserved_forwards_enhanced(tmp_path):
     """Enhancement 'none' changes nothing, so features are preserved and enhanced.wav is sent."""
-    report = run_gate(_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
-                      _config(tmp_path, enhancement_method="none"))
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="none", enhancement=None))
     assert report["feature_preserved"]["preserved"] is True
     assert report["audio_choice"] == "enhanced"
     assert report["audio_for_next_stage"].endswith("enhanced.wav")
@@ -159,12 +153,34 @@ def test_preserved_forwards_enhanced(tmp_path):
 def test_not_preserved_forwards_raw(tmp_path):
     """A tolerance no real change can meet: any enhancement 'alters biomarkers', so raw.wav is sent."""
     tight = {k: 1e-12 for k in load_config()["feature_tolerances"]}
-    report = run_gate(_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
-                      _config(tmp_path, enhancement_method="wiener", feature_tolerances=tight))
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="wiener", feature_tolerances=tight,
+                                  enhancement=None))
     assert report["decision"] == "PASS"
     assert report["feature_preserved"]["preserved"] is False
     assert report["audio_choice"] == "raw"
     assert report["audio_for_next_stage"].endswith("raw.wav")
+
+
+def test_clean_take_is_not_processed(tmp_path):
+    """Contrast above skip_if_contrast_db_at_least: no enhancement, raw.wav is forwarded."""
+    policy = {"skip_if_contrast_db_at_least": -1000.0}   # every take counts as clean
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="wiener", enhancement=policy))
+    assert report["enhancement"]["applied"] is False
+    assert report["enhancement"]["method_used"] == "none"
+    assert report["quality_after"] == report["quality_before"]
+    if report["decision"] == "PASS":
+        assert report["audio_choice"] == "raw"
+
+
+def test_noisy_take_is_processed(tmp_path):
+    """Contrast below the threshold: the configured method runs and the report says so."""
+    policy = {"skip_if_contrast_db_at_least": 1000.0}    # no take counts as clean
+    report = run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "vowel",
+                      gate_config(tmp_path, enhancement_method="highpass", enhancement=policy))
+    assert report["enhancement"]["applied"] is True
+    assert report["enhancement"]["method_used"] == "highpass"
 
 
 def test_forwarded_audio_is_standardised(vowel_run):
@@ -177,8 +193,8 @@ def test_forwarded_audio_is_standardised(vowel_run):
 # --- Determinism ------------------------------------------------------------------
 
 def test_same_input_twice_identical_report_bytes(tmp_path):
-    cfg = _config(tmp_path)
-    path = _wav(tmp_path, "v.wav", _natural_vowel())
+    cfg = gate_config(tmp_path)
+    path = write_wav(tmp_path, "v.wav", _natural_vowel())
     first = run_gate(path, "vowel", cfg)
     folder = tmp_path / "outputs" / first["clip_id"]
     before = {name: (folder / name).read_bytes() for name in OUTPUT_FILES}
@@ -191,13 +207,13 @@ def test_same_input_twice_identical_report_bytes(tmp_path):
 # --- Input handling -----------------------------------------------------------------
 
 def test_m4a_input_is_converted_and_temp_wav_removed(tmp_path, monkeypatch):
-    wav = _wav(tmp_path, "phone.wav", _natural_vowel())
+    wav = write_wav(tmp_path, "phone.wav", _natural_vowel())
     m4a = tmp_path / "phone.m4a"
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", wav, str(m4a)],
                    check=True)
     monkeypatch.setattr("tempfile.tempdir", str(tmp_path / "tmp"))
     (tmp_path / "tmp").mkdir()
-    report = run_gate(str(m4a), "vowel", _config(tmp_path))
+    report = run_gate(str(m4a), "vowel", gate_config(tmp_path))
     jsonschema.validate(report, REPORT_SCHEMA)
     assert report["clip_id"].startswith("phone_")
     assert list((tmp_path / "tmp").iterdir()) == []   # converted WAV cleaned up
@@ -206,14 +222,14 @@ def test_m4a_input_is_converted_and_temp_wav_removed(tmp_path, monkeypatch):
 def test_keeps_native_sample_rate(tmp_path):
     path = tmp_path / "v8k.wav"
     sf.write(path, make_vowel(duration_s=4.0, sr=8000), 8000)
-    report = run_gate(str(path), "vowel", _config(tmp_path))
+    report = run_gate(str(path), "vowel", gate_config(tmp_path))
     assert sf.info(tmp_path / "outputs" / report["clip_id"] / "raw.wav").samplerate == 8000
     assert report["duration_s"] == pytest.approx(4.0, abs=1e-3)
 
 
 def test_unknown_task_raises(tmp_path):
     with pytest.raises(ValueError):
-        run_gate(_wav(tmp_path, "v.wav", _natural_vowel()), "reading", _config(tmp_path))
+        run_gate(write_wav(tmp_path, "v.wav", _natural_vowel()), "reading", gate_config(tmp_path))
 
 
 @pytest.mark.parametrize("value,expected", [

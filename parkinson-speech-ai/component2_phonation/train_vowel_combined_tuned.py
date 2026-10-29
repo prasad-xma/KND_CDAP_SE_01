@@ -31,7 +31,13 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
-from .train_vowel_combined import _load_ah, _load_italian, _load_kaggle
+from .train_vowel_combined import (
+    _load_ah,
+    _load_italian,
+    _load_local_healthy,
+    _load_phone_recorded_pd,
+    _load_phone_recorded_healthy,
+)
 from .features import FEATURE_NAMES
 from common.model_evaluation import REPO_ROOT, MODELS_DIR, RANDOM_STATE
 
@@ -48,9 +54,15 @@ def main():
     ah_df["participant_id"] = "AH_" + ah_df["participant_id"].astype(str)
     italian_df = _load_italian()
     italian_df["source"] = "Italian_PVS"
-    kaggle_df = _load_kaggle()
-    kaggle_df["source"] = "Kaggle_UCI"
-    df = pd.concat([ah_df, italian_df, kaggle_df], ignore_index=True)
+    local_healthy_df = _load_local_healthy()
+    local_healthy_df["source"] = "Local_Healthy"
+    phone_pd_df = _load_phone_recorded_pd()
+    phone_pd_df["source"] = "Phone_Recorded_PD"
+    phone_healthy_df = _load_phone_recorded_healthy()
+    phone_healthy_df["source"] = "Phone_Recorded_Healthy"
+    df = pd.concat(
+        [ah_df, italian_df, local_healthy_df, phone_pd_df, phone_healthy_df], ignore_index=True
+    )
 
     X = df[FEATURE_NAMES].values
     y = df["label"].values

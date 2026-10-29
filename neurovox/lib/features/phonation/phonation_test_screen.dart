@@ -12,6 +12,7 @@ import 'package:record/record.dart';
 import '../../core/i18n/language_controller.dart';
 import '../../core/models/phonation_result.dart';
 import '../../core/services/phonation_api_service.dart';
+import '../acoustic_noise/quality_gate.dart';
 
 const Color _bg = Color(0xFF0A0E14);
 const Color _surface = Color(0xFF131A24);
@@ -52,13 +53,12 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
   // Step 1 records the vowel task _vowelRepeatCount times and averages the
   // predictions - reduces take-to-take measurement noise vs a single
   // recording (see PhonationMultiResult.toAveragedResult).
-  static const int _vowelRepeatCount = 3;
+  static const int _vowelRepeatCount = 1;
   int _vowelRepeatIndex = 0;
   final List<String> _vowelMultiFilePaths = [];
   final List<List<int>> _vowelMultiByteLists = [];
 
-  static const int _vowelRecordSeconds = 3;
-  int _vowelCountdownRemaining = _vowelRecordSeconds;
+  int _vowelElapsedSeconds = 0;
   Timer? _vowelCountdownTimer;
 
   void _cancelVowelCountdown() {
@@ -70,17 +70,9 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     BuildContext modalContext,
     void Function(void Function()) setModalState,
   ) {
-    _vowelCountdownRemaining = _vowelRecordSeconds;
-    _vowelCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      _vowelCountdownRemaining--;
-      if (_vowelCountdownRemaining <= 0) {
-        timer.cancel();
-        _vowelCountdownTimer = null;
-        if (_isRecording) {
-          await _stopStepAndAdvance(modalContext, setModalState);
-        }
-        return;
-      }
+    _vowelElapsedSeconds = 0;
+    _vowelCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _vowelElapsedSeconds++;
       if (modalContext.mounted) setModalState(() {});
     });
   }
@@ -144,6 +136,28 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     });
   }
 
+  /// Component 1 quality gate for one vowel take. Throws QualityGateRejected
+  /// (toString() = message for the user) when the take should be re-recorded.
+  Future<void> _gateVowelTake(
+    VoidCallback refreshModal, {
+    String? filePath,
+    List<int>? bytes,
+  }) async {
+    if (!QualityGate.enabled) return;
+    setState(() => _isProcessing = true);
+    refreshModal();
+    try {
+      await QualityGate.check(
+        task: QualityTask.vowel,
+        filePath: filePath,
+        bytes: bytes,
+        filename: 'vowel_take.wav',
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _resetStepState() async {
     _cancelVowelCountdown();
     if (!kIsWeb && _vowelFilePath != null) {
@@ -162,13 +176,18 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     _vowelMultiByteLists.clear();
     _vowelRepeatIndex = 0;
     _currentStep = 1;
-    _vowelCountdownRemaining = _vowelRecordSeconds;
+    _vowelElapsedSeconds = 0;
   }
 
   Future<void> _stopStepAndAdvance(
     BuildContext modalContext,
     void Function(void Function()) setModalState,
   ) async {
+    // Created before any await, so the gate can redraw the modal safely later.
+    void refreshModal() {
+      if (modalContext.mounted) setModalState(() {});
+    }
+
     _cancelVowelCountdown();
     final path = await _recorder.stop();
     setState(() => _isRecording = false);
@@ -191,12 +210,21 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
               'full duration.',
             );
           }
+          // Component 1: gate this take before keeping it.
+          await _gateVowelTake(refreshModal, bytes: bytes);
           _vowelMultiByteLists.add(bytes);
         } else {
+          await _gateVowelTake(refreshModal, filePath: path);
           _vowelMultiFilePaths.add(path);
         }
       } catch (e) {
+        // A rejected take is discarded; the user re-records the same take.
+        if (!kIsWeb && e is QualityGateRejected) {
+          final f = File(path);
+          if (await f.exists()) await f.delete();
+        }
         setState(() => _recordError = e.toString());
+        refreshModal();
         return;
       }
 
@@ -227,10 +255,20 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
         if (modalContext.mounted) Navigator.pop(modalContext);
       } catch (e) {
         if (!mounted) return;
-        setState(() {
-          _isProcessing = false;
-          _recordError = e.toString();
-        });
+        if (e.toString().contains('No voiced frames')) {
+          final noVoiceResult = PhonationDualResult.noVoiceDetected();
+          setState(() {
+            _isProcessing = false;
+            _lastResult = noVoiceResult;
+          });
+          widget.onResult?.call(noVoiceResult);
+          if (modalContext.mounted) Navigator.pop(modalContext);
+        } else {
+          setState(() {
+            _isProcessing = false;
+            _recordError = e.toString();
+          });
+        }
       } finally {
         await _resetStepState();
       }
@@ -363,7 +401,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                             ),
                           ),
                         )
-                      else if (isStep1)
+                      else if (isStep1 && _vowelRepeatCount > 1)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
@@ -436,7 +474,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                   const SizedBox(height: 18),
                   if (isStep1 && _isRecording) ...[
                     Text(
-                      '$_vowelCountdownRemaining',
+                      '$_vowelElapsedSeconds',
                       style: const TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.w800,
@@ -536,28 +574,66 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
     );
   }
 
-  Widget _buildConfidenceGauge(double value, Color color) {
+  Widget _buildConfidenceGauge(double probabilityHc, double probabilityPd, Color verdictColor) {
     const double gaugeWidth = 168;
-    return SizedBox(
-      width: gaugeWidth,
-      height: gaugeWidth / 2 + 38,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          SizedBox(
-            width: gaugeWidth,
-            height: gaugeWidth / 2,
-            child: CustomPaint(painter: _GaugePainter(value: value, color: color)),
+    return Column(
+      children: [
+        SizedBox(
+          width: gaugeWidth,
+          height: gaugeWidth / 2 + 38,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              SizedBox(
+                width: gaugeWidth,
+                height: gaugeWidth / 2,
+                child: CustomPaint(
+                  painter: _GaugePainter(
+                    hcValue: probabilityHc,
+                    pdValue: probabilityPd,
+                    hcColor: _accent,
+                    pdColor: _warn,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: gaugeWidth / 2 - 14,
+                child: Text(
+                  '${(probabilityHc * 100).toStringAsFixed(1)}%',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: verdictColor),
+                ),
+              ),
+            ],
           ),
-          Positioned(
-            top: gaugeWidth / 2 - 14,
-            child: Text(
-              '${(value * 100).toStringAsFixed(1)}%',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _gaugeLegendDot(_accent),
+            const SizedBox(width: 6),
+            Text(
+              '${_s('hcRange')} ${(probabilityHc * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(fontSize: 12, color: _textSecondary, fontWeight: FontWeight.w600),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 14),
+            _gaugeLegendDot(_warn),
+            const SizedBox(width: 6),
+            Text(
+              '${_s('pdIndicators')} ${(probabilityPd * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(fontSize: 12, color: _textSecondary, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _gaugeLegendDot(Color color) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 
@@ -598,15 +674,15 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
   Widget _buildResultCenterpiece(PhonationDualResult result) {
     final bool flagged = result.isPd;
-    final double confidence = flagged ? result.probabilityPd : result.probabilityHc;
-    final Color accent = flagged ? _warn : _accent;
+    final Color accent = result.noVoiceDetected ? _danger : (flagged ? _warn : _accent);
 
     return Column(
       children: [
-        _buildConfidenceGauge(confidence, accent),
+        _buildConfidenceGauge(result.probabilityHc, result.probabilityPd, accent),
         const SizedBox(height: 4),
         Text(
-          flagged ? _s('pdIndicators') : _s('hcRange'),
+          result.noVoiceDetected ? _s('noVoiceDetected') : (flagged ? _s('pdIndicators') : _s('hcRange')),
+          textAlign: TextAlign.center,
           style: TextStyle(fontWeight: FontWeight.w800, color: accent, fontSize: 16),
         ),
         const SizedBox(height: 10),
@@ -1033,7 +1109,7 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
                 ),
               ],
 
-              if (features != null) ...[
+              if (features != null && features.isNotEmpty && !(_lastResult?.noVoiceDetected ?? false)) ...[
                 const SizedBox(height: 30),
                 _buildTaskDetailSection(
                   taskLabel: _s('vowelTaskLabel'),
@@ -1062,10 +1138,17 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 }
 
 class _GaugePainter extends CustomPainter {
-  final double value; // 0.0 - 1.0
-  final Color color;
+  final double hcValue; // 0.0 - 1.0, probability healthy
+  final double pdValue; // 0.0 - 1.0, probability PD
+  final Color hcColor;
+  final Color pdColor;
 
-  const _GaugePainter({required this.value, required this.color});
+  const _GaugePainter({
+    required this.hcValue,
+    required this.pdValue,
+    required this.hcColor,
+    required this.pdColor,
+  });
 
   static const double _strokeWidth = 14;
   static const double _startAngle = math.pi; // 9 o'clock
@@ -1087,15 +1170,28 @@ class _GaugePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, _startAngle, _sweep, false, track);
 
-    final progress = Paint()
-      ..color = color
+    final hcFraction = hcValue.clamp(0.0, 1.0);
+    final pdFraction = pdValue.clamp(0.0, 1.0);
+
+    final hcPaint = Paint()
+      ..color = hcColor
       ..strokeWidth = _strokeWidth
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, _startAngle, _sweep * value.clamp(0.0, 1.0), false, progress);
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawArc(rect, _startAngle, _sweep * hcFraction, false, hcPaint);
+
+    final pdPaint = Paint()
+      ..color = pdColor
+      ..strokeWidth = _strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawArc(rect, _startAngle + _sweep * hcFraction, _sweep * pdFraction, false, pdPaint);
   }
 
   @override
   bool shouldRepaint(covariant _GaugePainter oldDelegate) =>
-      oldDelegate.value != value || oldDelegate.color != color;
+      oldDelegate.hcValue != hcValue ||
+      oldDelegate.pdValue != pdValue ||
+      oldDelegate.hcColor != hcColor ||
+      oldDelegate.pdColor != pdColor;
 }

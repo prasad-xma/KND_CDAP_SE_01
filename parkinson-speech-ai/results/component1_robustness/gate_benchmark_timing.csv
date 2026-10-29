@@ -1,0 +1,5 @@
+model,input_s_per_clip,predict_s_per_clip,total_s_per_clip
+comp1-A,1.391013,0.000040,1.391052
+comp1-B-rf,1.400590,0.016660,1.417250
+comp1-B-svm,1.400590,0.002397,1.402986
+comp1-B-logreg,1.400590,0.002334,1.402923

@@ -13,7 +13,9 @@ Every model first applies the same hard rules, in this order:
 Only then does the model itself decide.
 
 Models:
-    comp1-A          rule: SNR/HNR estimate >= reliable_db (the original 10 dB rule)
+    comp1-A          rule: speech-band contrast >= comp1a_pass_db (10 dB). Until config v1.4
+                     it was SNR/HNR >= reliable_db; HNR could not separate a real voice from
+                     steady room hum on a laptop mic (see quality_metrics.speech_band_contrast_db).
     comp1-B-rf/svm/logreg   classical ML on quality metrics + MFCC means
 """
 
@@ -101,18 +103,24 @@ class GateModel:
 # --- comp1-A: the existing rule -----------------------------------------------------
 
 class Comp1A_RuleBased(GateModel):
-    """PASS if the SNR/HNR estimate >= reliable_db (the original 10 dB rule from the robustness study)."""
+    """PASS if the speech-band contrast >= comp1a_pass_db (default 10 dB).
+
+    Until config v1.4 this rule used the SNR/HNR estimate against reliable_db (removed in v1.5).
+    """
 
     name = "comp1-A"
 
     def score(self, estimate_db: float) -> float:
-        """Linear map: reliable_db -> 50, reliable_db +/- span -> 100 / 0 (clipped)."""
+        """Linear map: pass threshold -> 50, threshold +/- span -> 100 / 0 (clipped)."""
         span = self.config["comp1a_score_span_db"]
-        return float(np.clip(50.0 + 50.0 * (estimate_db - self.config["reliable_db"]) / span, 0.0, 100.0))
+        return float(np.clip(50.0 + 50.0 * (estimate_db - self._pass_db()) / span, 0.0, 100.0))
+
+    def _pass_db(self) -> float:
+        return float(self.config.get("comp1a_pass_db", 10.0))
 
     def _decide(self, quality: dict) -> dict:
-        estimate = quality["estimated_snr_db"]
-        passed = estimate >= self.config["reliable_db"]
+        estimate = quality["speech_band_contrast_db"]
+        passed = estimate >= self._pass_db()
         return _result(PASS if passed else FAIL, self.score(estimate), "ok" if passed else "low_snr")
 
 
