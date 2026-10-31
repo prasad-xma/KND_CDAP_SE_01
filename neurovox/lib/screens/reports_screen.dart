@@ -1,8 +1,19 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../core/i18n/language_controller.dart';
 import '../core/models/phonation_result.dart';
 import '../core/models/speech_motor_result.dart';
 import '../core/models/risk_fusion.dart';
+
+const Color _bg = Color(0xFF0A0E14);
+const Color _surfaceRaised = Color(0xFF1A2330);
+const Color _stroke = Color(0xFF232E3D);
+const Color _accent = Color(0xFF22E6C9);
+const Color _warn = Color(0xFFFFB24B);
+const Color _danger = Color(0xFFFF6B6B);
+const Color _textPrimary = Color(0xFFEFF4F8);
+const Color _textSecondary = Color(0xFF8C9AAE);
 
 class ReportsScreen extends StatelessWidget {
   final PhonationDualResult? phonationResult;
@@ -12,12 +23,6 @@ class ReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color warnOrange = Color(0xFFD97706);
-    const Color dangerRed = Color(0xFFDC2626);
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
     final PhonationDualResult? r = phonationResult;
     final SpeechMotorResult? m = speechMotorResult;
 
@@ -27,10 +32,10 @@ class ReportsScreen extends StatelessWidget {
         : null;
 
     final Color tierColor = switch (fusion?.tier) {
-      RiskTier.low => primaryTeal,
-      RiskTier.moderate => warnOrange,
-      RiskTier.high => dangerRed,
-      null => primaryTeal,
+      RiskTier.low => _accent,
+      RiskTier.moderate => _warn,
+      RiskTier.high => _danger,
+      null => _accent,
     };
     final String tierTitleKey = switch (fusion?.tier) {
       RiskTier.low => 'riskTierLowTitle',
@@ -47,139 +52,151 @@ class ReportsScreen extends StatelessWidget {
 
     return ListenableBuilder(
       listenable: LanguageController.instance,
-      builder: (context, _) => SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tr('reportsTitle'),
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: darkSlate,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr('reportsSubtitle'),
-            style: const TextStyle(fontSize: 14, color: mediumGrey, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 24),
+      builder: (context, _) => Container(
+        color: _bg,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('reportsTitle'),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr('reportsSubtitle'),
+                style: const TextStyle(fontSize: 14, color: _textSecondary, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 24),
 
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryTeal.withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: _surfaceRaised,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _stroke),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tierColor.withValues(alpha: 0.12),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: hasFusedScore ? tierColor.withValues(alpha: 0.12) : const Color(0xFFE6F8F5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: hasFusedScore
-                        ? Text(
-                            '${(fusion!.fusedProbabilityPd * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: tierColor),
-                          )
-                        : const Icon(Icons.analytics_outlined, size: 36, color: primaryTeal),
-                  ),
+                child: Column(
+                  children: [
+                    if (hasFusedScore)
+                      _buildScoreGauge(fusion!.fusedProbabilityPd, tierColor)
+                    else
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          color: _accent.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.analytics_outlined, size: 38, color: _accent),
+                        ),
+                      ),
+                    const SizedBox(height: 18),
+                    Text(
+                      tr(tierTitleKey),
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(tierDescKey),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: _textSecondary, fontSize: 13.5, fontWeight: FontWeight.w500),
+                    ),
+                    if (hasFusedScore && !fusion!.concordant) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        tr('fusionDiscordantNote'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: _warn, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  tr(tierTitleKey),
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: darkSlate),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  tr(tierDescKey),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: mediumGrey, fontSize: 13.5, fontWeight: FontWeight.w500),
-                ),
-                if (hasFusedScore && !fusion!.concordant) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    tr('fusionDiscordantNote'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: warnOrange, fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ],
-                if (hasFusedScore && m.isPlaceholder) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    tr('motorUsePlaceholderNote'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: mediumGrey, fontSize: 11.5, fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
+              ),
+              const SizedBox(height: 28),
 
-          Text(
-            tr('phonationResultsSectionTitle'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkSlate, letterSpacing: -0.3),
-          ),
-          const SizedBox(height: 14),
-          if (r == null)
-            _buildEmptyCard(tr('noPhonationResultsYet'))
-          else
-            _buildPhonationResults(r),
-          const SizedBox(height: 28),
+              Text(
+                tr('phonationResultsSectionTitle'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textPrimary, letterSpacing: -0.3),
+              ),
+              const SizedBox(height: 14),
+              if (r == null)
+                _buildEmptyCard(tr('noPhonationResultsYet'))
+              else
+                _buildPhonationResults(r),
+              const SizedBox(height: 28),
 
-          Text(
-            tr('speechMotorResultsSectionTitle'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkSlate, letterSpacing: -0.3),
+              Text(
+                tr('speechMotorResultsSectionTitle'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textPrimary, letterSpacing: -0.3),
+              ),
+              const SizedBox(height: 14),
+              if (m == null)
+                _buildEmptyCard(tr('motorResultsNotAvailableDesc'))
+              else
+                _buildMotorResultCard(m),
+              const SizedBox(height: 24),
+            ],
           ),
-          const SizedBox(height: 14),
-          if (m == null)
-            _buildEmptyCard(tr('motorResultsNotAvailableDesc'))
-          else
-            _buildMotorResultCard(m),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildScoreGauge(double probabilityPd, Color tierColor) {
+    const double size = 148;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(size, size),
+            painter: _ScoreGaugePainter(fraction: probabilityPd, color: tierColor),
+          ),
+          Text(
+            '${(probabilityPd * 100).toStringAsFixed(0)}%',
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: tierColor),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyCard(String message) {
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceRaised,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: _stroke),
       ),
       child: Column(
         children: [
-          const Icon(Icons.hourglass_empty_rounded, color: mediumGrey, size: 24),
+          const Icon(Icons.hourglass_empty_rounded, color: _textSecondary, size: 24),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12.5, color: darkSlate, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 12.5, color: _textSecondary, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -193,60 +210,28 @@ class ReportsScreen extends StatelessWidget {
           title: tr('vowelTaskFullLabel'),
           result: r.vowelTask,
         ),
-        const SizedBox(height: 14),
-        if (r.phraseTask != null)
+        if (r.phraseTask != null) ...[
+          const SizedBox(height: 14),
           _buildTaskResultCard(
             title: tr('phraseTaskFullLabel'),
             result: r.phraseTask!,
-          )
-        else
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, color: Color(0xFF64748B), size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    tr('phraseTaskNotRun'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
           ),
+        ],
       ],
     );
   }
 
   Widget _buildMotorResultCard(SpeechMotorResult m) {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color warnOrange = Color(0xFFD97706);
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
-    final Color accent = m.isPd ? warnOrange : primaryTeal;
+    final Color accent = m.isPd ? _warn : _accent;
     final double confidence = m.isPd ? m.probabilityPd : m.probabilityHc;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceRaised,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: primaryTeal.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: _stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,13 +242,13 @@ class ReportsScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr('speechMotorTaskFullLabel'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: darkSlate, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: _textPrimary, fontSize: 14),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
+                  color: accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -273,24 +258,13 @@ class ReportsScreen extends StatelessWidget {
               ),
             ],
           ),
-          if (m.isPlaceholder) ...[
-            const SizedBox(height: 10),
-            Text(
-              tr('motorUsePlaceholderNote'),
-              style: const TextStyle(fontSize: 11.5, color: mediumGrey, fontStyle: FontStyle.italic),
-            ),
-          ],
         ],
       ),
     );
   }
 
   Widget _buildTaskResultCard({required String title, required PhonationResult result}) {
-    const Color primaryTeal = Color(0xFF0C9388);
-    const Color warnOrange = Color(0xFFD97706);
-    const Color darkSlate = Color(0xFF1E293B);
-
-    final Color accent = result.isPd ? warnOrange : primaryTeal;
+    final Color accent = result.isPd ? _warn : _accent;
     final double confidence = result.isPd ? result.probabilityPd : result.probabilityHc;
     final features = result.features;
 
@@ -298,15 +272,9 @@ class ReportsScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceRaised,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: primaryTeal.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: _stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,12 +283,12 @@ class ReportsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: darkSlate, fontSize: 14)),
+                child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: _textPrimary, fontSize: 14)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
+                  color: accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -352,24 +320,58 @@ class ReportsScreen extends StatelessWidget {
   }
 
   Widget _buildMiniMetric(String label, String value, String unit) {
-    const Color darkSlate = Color(0xFF1E293B);
-    const Color mediumGrey = Color(0xFF64748B);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: mediumGrey, fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(fontSize: 11, color: _textSecondary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 2),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkSlate)),
+            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textPrimary)),
             const SizedBox(width: 3),
-            Text(unit, style: const TextStyle(fontSize: 11, color: mediumGrey)),
+            Text(unit, style: const TextStyle(fontSize: 11, color: _textSecondary)),
           ],
         ),
       ],
     );
   }
+}
+
+class _ScoreGaugePainter extends CustomPainter {
+  final double fraction; // 0.0 - 1.0
+  final Color color;
+
+  const _ScoreGaugePainter({required this.fraction, required this.color});
+
+  static const double _strokeWidth = 14;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(
+      _strokeWidth / 2,
+      _strokeWidth / 2,
+      size.width - _strokeWidth,
+      size.height - _strokeWidth,
+    );
+
+    final track = Paint()
+      ..color = _stroke
+      ..strokeWidth = _strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -math.pi / 2, 2 * math.pi, false, track);
+
+    final fillPaint = Paint()
+      ..color = color
+      ..strokeWidth = _strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * fraction.clamp(0.0, 1.0), false, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScoreGaugePainter oldDelegate) =>
+      oldDelegate.fraction != fraction || oldDelegate.color != color;
 }

@@ -1,5 +1,5 @@
 {
-  "note": "Trained ONLY on phone_recorded_PD + phone_recorded_Healthy (81 recordings, all captured via phone mic re-recording of PD_AH/HC_AH playback). No AH/Italian/Kaggle/local_healthy data included.",
+  "note": "Trained on 110 phone-mic recordings across sources: {'Phone_Recorded_Healthy': 41, 'Phone_Recorded_PD': 40, 'Phone_Recorded_Healthy_Italian': 22, 'Local_Healthy_Training': 7}. INCLUDE_PD_ITALIAN=False, INCLUDE_HEALTHY_ITALIAN=True, INCLUDE_LOCAL_HEALTHY_TRAINING=True.",
   "best_params": {
     "select__k": "7",
     "clf__gamma": "scale",

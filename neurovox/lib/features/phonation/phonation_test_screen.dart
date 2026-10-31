@@ -190,10 +190,16 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
 
     _cancelVowelCountdown();
     final path = await _recorder.stop();
-    setState(() => _isRecording = false);
+    setState(() {
+      _isRecording = false;
+      _isProcessing = true;
+    });
 
     if (path == null) {
-      setState(() => _recordError = _s('recordingFailed'));
+      setState(() {
+        _recordError = _s('recordingFailed');
+        _isProcessing = false;
+      });
       return;
     }
 
@@ -223,7 +229,10 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
           final f = File(path);
           if (await f.exists()) await f.delete();
         }
-        setState(() => _recordError = e.toString());
+        setState(() {
+          _recordError = e.toString();
+          _isProcessing = false;
+        });
         refreshModal();
         return;
       }
@@ -234,13 +243,13 @@ class _PhonationTestScreenState extends State<PhonationTestScreen> with SingleTi
         setState(() {
           _vowelRepeatIndex++;
           _recordError = null;
+          _isProcessing = false;
         });
         setModalState(() {});
         return;
       }
 
       // All repeats captured - score them together and average.
-      setState(() => _isProcessing = true);
       try {
         final PhonationMultiResult multiResult = kIsWeb
             ? await PhonationApiService.screenVowelMultiBytes(_vowelMultiByteLists)

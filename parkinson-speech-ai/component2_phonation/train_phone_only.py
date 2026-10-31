@@ -153,6 +153,12 @@ def main():
     print("\nBest params:", search.best_params_)
     print("Best CV balanced accuracy (from search):", round(search.best_score_, 4))
 
+    cv_results = pd.DataFrame(search.cv_results_)
+    cv_results["algorithm"] = cv_results["param_clf"].apply(lambda c: type(c).__name__)
+    cv_results_path = os.path.join(RESULTS_DIR, "phone_only_cv_results.csv")
+    cv_results.sort_values("rank_test_score").to_csv(cv_results_path, index=False)
+    print(f"Saved full RandomizedSearchCV comparison ({len(cv_results)} combinations) to {cv_results_path}")
+
     best_model = search.best_estimator_
     y_pred_cv = cross_val_predict(best_model, X, y, groups=groups, cv=cv)
 
@@ -171,9 +177,11 @@ def main():
     print(f"\nSaved phone-only model to {model_path}")
 
     metrics = {
-        "note": "Trained ONLY on phone_recorded_PD + phone_recorded_Healthy (81 recordings, "
-                "all captured via phone mic re-recording of PD_AH/HC_AH playback). "
-                "No AH/Italian/Kaggle/local_healthy data included.",
+        "note": f"Trained on {len(df)} phone-mic recordings across sources: "
+                f"{df['source'].value_counts().to_dict()}. "
+                f"INCLUDE_PD_ITALIAN={INCLUDE_PD_ITALIAN}, "
+                f"INCLUDE_HEALTHY_ITALIAN={INCLUDE_HEALTHY_ITALIAN}, "
+                f"INCLUDE_LOCAL_HEALTHY_TRAINING={INCLUDE_LOCAL_HEALTHY_TRAINING}.",
         "best_params": {k: str(v) for k, v in search.best_params_.items()},
         "cv_accuracy": float(acc),
         "cv_balanced_accuracy": float(bal_acc),
