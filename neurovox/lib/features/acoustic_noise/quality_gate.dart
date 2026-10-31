@@ -16,7 +16,7 @@ class QualityGate {
 
   /// Master switch. Set to false to bypass the gate (e.g. a teammate testing
   /// their own component without the port-8001 server running).
-  static bool enabled = true;
+  static bool enabled = false;
 
   /// Gates one recording. Pass [filePath] on mobile/desktop or [bytes] on web.
   /// Returns null when the gate is disabled.
